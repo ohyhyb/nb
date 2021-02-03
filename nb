@@ -1620,6 +1620,31 @@ _file_is_image() {
   LC_ALL=C _contains "${_file_type}" "${_IMAGE_FILE_EXTENSIONS[@]}"
 }
 
+# _file_is_markdown()
+#
+# Usage:
+#   _file_is_markdown (<path> | <filename>)
+#
+# Exit / Error Status:
+#   0 (success, true)  If file is a markdown file.
+#   1 (error,  false)  if not.
+export _MARKDOWN_FILE_EXTENSIONS=(
+  markdown
+  md
+  mdown
+  mdwn
+  mdtxt
+  mdtext
+  mkd
+  mkdn
+)
+_file_is_markdown() {
+  local _file_path="${1:-}"
+  local _file_type="${_file_path##*.}"
+
+  LC_ALL=C _contains "${_file_type}" "${_MARKDOWN_FILE_EXTENSIONS[@]}"
+}
+
 # _file_is_text()
 #
 # Usage:
@@ -1638,14 +1663,6 @@ export _TEXT_FILE_EXTENSIONS=(
   js
   jsx
   latex
-  markdown
-  md
-  mdown
-  mdwn
-  mdtxt
-  mdtext
-  mkd
-  mkdn
   org
   py
   rb
@@ -12906,7 +12923,10 @@ Can't show archives. Export archive and expand to edit.\\n"
   # turn on case-insensitive matching
   shopt -s nocasematch
 
-  if ! _file_is_text "${_target_path}"
+  if _file_is_markdown "${_target_path}" && _command_exists "glow"
+  then
+    glow -p "${_target_path}"
+  elif ! _file_is_text "${_target_path}"
   then
     if ! ((_render_for_browsing))   &&
        [[ -d "${_target_path}" ]]   &&
