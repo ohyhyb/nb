@@ -886,8 +886,7 @@ __set_notebook_paths() {
     then
       cd "${_CURRENT_WORKING_DIR}"
       return 0
-    elif [[ -d "${PWD}/.git"    ]] &&
-         [[ -f "${PWD}/.index"  ]]
+    elif [[ -f "${PWD}/.index"  ]]
     then
       _LOCAL_NOTEBOOK_PATH="${PWD}"
       cd "${_CURRENT_WORKING_DIR}"
@@ -3178,41 +3177,35 @@ _git() {
     local _current_timestamp=
     local _last_fetch_timestamp=
     local _maybe_fetch_timestamp=
-    local _notebook_path="${1:-}"
-
-    if [[ -z "${_notebook_path}" ]]
-    then
-      _notebook_path="$(_notebooks current --path)"
-    fi
 
     if ! ((NB_AUTO_SYNC))
     then # autosync not enabled.
       return 1
     fi
 
-    if ! git -C "${_notebook_path}" config --get remote.origin.url &>/dev/null
+    if ! git -C "${NB_DIR}" config --get remote.origin.url &>/dev/null
     then # there is no remote configured.
       return 1
     fi
 
-    if [[ ! -e "${_notebook_path}/.git/FETCH_HEAD" ]]
+    if [[ ! -e "${NB_DIR}/.git/FETCH_HEAD" ]]
     then # no previous fetches, but has an origin and autosync is enabled.
       return 0
     fi
 
     if _maybe_fetch_timestamp="$(
-         stat -c %Y "${_notebook_path}/.git/FETCH_HEAD" 2>/dev/null
+         stat -c %Y "${NB_DIR}/.git/FETCH_HEAD" 2>/dev/null
        )"
     then # GNU
       _last_fetch_timestamp="${_maybe_fetch_timestamp}"
     elif _maybe_fetch_timestamp="$(
-           gstat -c %Y "${_notebook_path}/.git/FETCH_HEAD" 2>/dev/null
+           gstat -c %Y "${NB_DIR}/.git/FETCH_HEAD" 2>/dev/null
          )"
     then # GNU prefixed
       _last_fetch_timestamp="${_maybe_fetch_timestamp}"
     else
       _last_fetch_timestamp="$(
-        stat -f '%m' "${_notebook_path}/.git/FETCH_HEAD"
+        stat -f '%m' "${NB_DIR}/.git/FETCH_HEAD"
       )"
     fi
     _current_timestamp="$(date +%s)"
@@ -3234,22 +3227,20 @@ _git() {
 
     # Usage: _git_checkpoint_commit <notebook-path> <message>
     _git_checkpoint_commit() {
-     local _notebook_path="${1:-}"
-     local _message="${2:-}"
+     local _message="${1:-}"
 
-      if [[ -z "${_notebook_path:-}" ]] || [[ -z "${_message:-}" ]]
+      if [[ -z "${_message:-}" ]]
       then
         _exit_1 printf \
-           "Usage: _git_checkpoint_commit <message> <notebook-path>"
+           "Usage: _git_checkpoint_commit <message>"
       fi
 
-      git -C "${_notebook_path}" add --all &&
-        git -C "${_notebook_path}" commit -a -m "${_message}"
+      git -C "${NB_DIR}" add --all &&
+        git -C "${NB_DIR}" commit -a -m "${_message}"
     }
 
     local _message=
     local _show_spinner=0
-    local _notebook_path=
 
     for __arg in "${@:-}"
     do
@@ -3258,23 +3249,13 @@ _git() {
           _show_spinner=1
           ;;
         *)
-          if [[ -z "${_notebook_path}"  ]] &&
-             [[ "${__arg}" =~ ^/        ]] &&
-             [[ -d "${__arg}"           ]]
-          then
-            _notebook_path="${__arg}"
-          elif [[ -z "${_message}" ]]
+          if [[ -z "${_message}" ]]
           then
             _message="${__arg}"
           fi
           ;;
       esac
     done
-
-    if [[ -z "${_notebook_path:-}" ]]
-    then
-      _notebook_path="$(_notebooks current --path)"
-    fi
 
     if [[ -z "${_message}" ]]
     then
@@ -3286,15 +3267,15 @@ _git() {
       (
         {
           # only sync when the index is dirty
-          if _git dirty "${_notebook_path}"
+          if _git dirty
           then
-            _git_checkpoint_commit "${_notebook_path}" "${_message}" &>/dev/null
-          fi && GIT_TERMINAL_PROMPT=0 _git sync "${_notebook_path}"  &>/dev/null
+            _git_checkpoint_commit "${_message}" &>/dev/null
+          fi && GIT_TERMINAL_PROMPT=0 _git sync &>/dev/null
         } || :
       ) &
     else
       (
-        _git_checkpoint_commit "${_notebook_path}" "${_message}" &>/dev/null ||
+        _git_checkpoint_commit "${_message}" &>/dev/null ||
           return 0
       ) &
     fi
@@ -3319,15 +3300,7 @@ _git() {
   #   1 (error,  false)  If <notebook-path> or the current notebook is clean.
   _git_dirty() {
     ((_GIT_ENABLED)) || return 1
-
-    local _target_path="${1:-}"
-
-    if [[ -z "${_target_path:-}" ]]
-    then
-      _target_path="$(_notebooks current --path)"
-    fi
-
-    [[ -n "$(git -C "${_target_path}" status --porcelain)" ]]
+    [[ -n "$(git -C "${NB_DIR}" status --porcelain)" ]]
   }
 
   # _git_out_of_sync()
@@ -3342,15 +3315,7 @@ _git() {
   #                      with the remote.
   _git_out_of_sync() {
     ((_GIT_ENABLED)) || return 1
-
-    local _notebook_path="${1:-}"
-
-    if [[ -z "${_notebook_path:-}" ]]
-    then
-      _notebook_path="$(_notebooks current --path)"
-    fi
-
-    git -C "${_notebook_path}" status | grep -q 'diverged'
+    git -C "${NB_DIR}" status | grep -q 'diverged'
   }
 
   # _git_required()
@@ -3430,27 +3395,21 @@ HEREDOC
   _git_sync() {
     local _notebook_path="${1:-}"
     local _prompt="${GIT_TERMINAL_PROMPT:-1}"
-
-    if [[ -z "${_notebook_path:-}" ]]
-    then
-      _notebook_path="$(_notebooks current --path)"
-    fi
-
     local _remote_url=
 
-    if ! _remote_url="$(git -C "${_notebook_path}" remote get-url origin 2>/dev/null)" ||
+    if ! _remote_url="$(git -C "${NB_DIR}" remote get-url origin 2>/dev/null)" ||
        [[ -z "${_remote_url:-}" ]]
     then
       return 0
     fi
 
-    if ! GIT_TERMINAL_PROMPT=0 git -C "${_notebook_path}" fetch &>/dev/null
+    if ! GIT_TERMINAL_PROMPT=0 git -C "${NB_DIR}" fetch &>/dev/null
     then
       if ((_prompt))
       then # fetch again, displaying git prompt and/or errors after newline
         printf "\\n"
 
-        if ! GIT_TERMINAL_PROMPT=1 git -C "${_notebook_path}" fetch
+        if ! GIT_TERMINAL_PROMPT=1 git -C "${NB_DIR}" fetch
         then
           exit 1
         fi
@@ -3460,9 +3419,9 @@ HEREDOC
     fi
 
     local _git_branch=
-    _git_branch="$(git -C "${_notebook_path}" rev-parse --abbrev-ref HEAD)"
+    _git_branch="$(git -C "${NB_DIR}" rev-parse --abbrev-ref HEAD)"
 
-    if ! git -C "${_notebook_path}" show-branch \
+    if ! git -C "${NB_DIR}" show-branch \
            "remotes/origin/${_git_branch}" > /dev/null 2>&1
     then
       local _remote_branch=
@@ -3473,19 +3432,19 @@ HEREDOC
 
       if [[ "${_git_branch:-}" != "${_remote_branch:-}" ]]
       then
-        git -C "${_notebook_path}" \
+        git -C "${NB_DIR}" \
           branch -m "${_git_branch:-}" "${_remote_branch:-}" &&
             _git_branch="${_remote_branch:-}"
       fi
     fi
 
-    if ! git -C "${_notebook_path}" rebase "origin/${_git_branch}" &>/dev/null
+    if ! git -C "${NB_DIR}" rebase "origin/${_git_branch}" &>/dev/null
     then
       local _merge_error=1
 
       local _conflicted_files
       _conflicted_files=($(
-        GIT_PAGER='' git -C "${_notebook_path}" diff --name-only --diff-filter=U
+        GIT_PAGER='' git -C "${NB_DIR}" diff --name-only --diff-filter=U
       ))
 
       local _conflicted_text_files=()
@@ -3504,9 +3463,9 @@ HEREDOC
               -e '/^<<<<<<</d'  \
               -e '/^>>>>>>>/d'  \
               -e '/=======/d'   \
-              "${_notebook_path}/${__maybe_index_relative_path}"
+              "${NB_DIR}/${_notebook_path}/${__maybe_index_relative_path}"
 
-            git -C "${_notebook_path}" add "${__maybe_index_relative_path}"
+            git -C "${NB_DIR}" add "${__maybe_index_relative_path}"
           fi
         done
 
@@ -3519,10 +3478,10 @@ HEREDOC
           then
             _conflicted_text_files+=("${__relative_path}")
 
-            git -C "${_notebook_path}" add                \
+            git -C "${NB_DIR}" add                \
               "${__relative_path}"
           else
-            git -C "${_notebook_path}" checkout           \
+            git -C "${NB_DIR}" checkout           \
               "origin/${_git_branch}" -- "${__relative_path}"
 
             local _conflicted_file=
@@ -3533,25 +3492,25 @@ HEREDOC
 
             _conflicted_binary_files+=("${_conflicted_file}")
 
-            git -C "${_notebook_path}" mv                 \
+            git -C "${NB_DIR}" mv                 \
               "${__relative_path}" "${_conflicted_file}"
 
-            git -C "${_notebook_path}" checkout           \
+            git -C "${NB_DIR}" checkout           \
               "${_git_branch}" -- "${__relative_path}"
 
-            git -C "${_notebook_path}" add "${_conflicted_file}"
-            git -C "${_notebook_path}" add "${__relative_path}"
+            git -C "${NB_DIR}" add "${_conflicted_file}"
+            git -C "${NB_DIR}" add "${__relative_path}"
           fi
         done
 
-        GIT_EDITOR=true git -C "${_notebook_path}" rebase \
+        GIT_EDITOR=true git -C "${NB_DIR}" rebase \
           --continue &>/dev/null &&
             _merge_error=0
       fi
 
       if ((_merge_error))
       then
-        git -C "${_notebook_path}" rebase --abort
+        git -C "${NB_DIR}" rebase --abort
 
         _warn printf \
           "Merge conflict. Use \`%s git\` to merge manually.\\n" \
@@ -3589,7 +3548,7 @@ HEREDOC
     fi
 
     GIT_TERMINAL_PROMPT="${GIT_TERMINAL_PROMPT:-1}" \
-      git -C "${_notebook_path}" push               \
+      git -C "${NB_DIR}" push               \
       --set-upstream                                \
       origin "${_git_branch}"                       \
       &>/dev/null || {
@@ -3600,33 +3559,30 @@ HEREDOC
 
   case "${1:-}" in
     *autosync*)
-      _git_autosyncable "${2:-}"
+      _git_autosyncable
       ;;
     checkpoint)
       shift
       _git_checkpoint "${@:-}"
       ;;
     dirty)
-      _git_dirty "${2:-}"
+      _git_dirty
       ;;
     out*of*sync|o|oos|out)
-      _git_out_of_sync "${2:-}"
+      _git_out_of_sync
       ;;
     required|setup)
       _git_required
       ;;
     sync)
-      _git_sync "${2:-}"
+      _git_sync
       ;;
     *)
-      local _notebook_path
-      _notebook_path="$(_notebooks current --path)"
-
       if [[ -n "${1:-}" ]]
       then
-        git -C "${_notebook_path}" "${@}"
+        git -C "${NB_DIR}" "${@}"
       else
-        git -C "${_notebook_path}"
+        git -C "${NB_DIR}"
       fi
       ;;
   esac
@@ -4218,7 +4174,7 @@ _index() {
 
         _current_folder_path="${_current_folder_path%/*}"
       done  &&
-        _git checkpoint "${_notebook_path}" "[nb] ${_rebuild_type:-Rebuild} Index"
+        _git checkpoint "[nb] ${_rebuild_type:-Rebuild} Index"
 
       return 0
       ;;
@@ -4409,34 +4365,19 @@ _init() {
 
     if [[ -n "${_repo_url}" ]]
     then
-      git clone "${_repo_url}" "${NB_DIR}/home"
+      git clone "${_repo_url}" "${NB_DIR}"
     else
       mkdir -p  "${NB_DIR}/home"                    &&
-        git -C  "${NB_DIR}/home" init   &>/dev/null &&
+        git -C  "${NB_DIR}" init   &>/dev/null      &&
         touch   "${NB_DIR}/home/.index"             &&
-        _git checkpoint "${NB_DIR}/home" "[nb] Initialize"
+        touch   "${NB_DIR}/.gitignore"              &&
+        echo ".current" > "${NB_DIR}/.gitignore"    &&
+        _git checkpoint "[nb] Initialize notebook 'home'"
     fi
 
     _notebooks use "home" 1>/dev/null
 
     printf "Created notebook:           %s\\n" "$(_color_primary "home")"
-  }
-
-  # Usage: _init_create_nb_dir
-  _init_create_nb_dir() {
-    if [[ -d "${NB_DIR}" ]]
-    then
-      printf "Data directory exists:      %s\\n" "$(_color_primary "${NB_DIR}")"
-    elif [[ -e "${NB_DIR}" ]]
-    then
-      _exit_1 cat <<HEREDOC
-Unable to set up the $(_color_primary "${_ME}") data directory. File exists at:
-${NB_DIR}
-HEREDOC
-    else
-      mkdir -p "${NB_DIR}"
-      printf "Created data directory:     %s\\n" "$(_color_primary "${NB_DIR}")"
-    fi
   }
 
   # Usage: _init_create_rc_file
@@ -4488,8 +4429,7 @@ HEREDOC
   fi
 
   _print_welcome                                    &&
-    _init_print_header                  1>/dev/null &&
-    _init_create_nb_dir                 1>/dev/null &&
+    _init_print_header                              &&
     _init_create_rc_file                1>/dev/null &&
     _init_create_home_notebook "${1:-}" 1>/dev/null
 }
@@ -4874,7 +4814,7 @@ _list() {
      [[ -z "${_filter_pattern:-}" ]]
   then
     _pinned_basenames=($(
-      GIT_PAGER='' git -C "${_list_path}"     \
+      GIT_PAGER='' git -C "${NB_DIR}"     \
         grep                                  \
         --color=never                         \
         --extended-regexp                     \
@@ -6206,35 +6146,10 @@ _notebooks() {
         printf "%s\\n" "${_name}" > "${NB_DIR}/.current"
     else
       mkdir -p "${NB_DIR}/${_name}"
-        git -C "${NB_DIR}/${_name}" init &>/dev/null  &&
         touch "${NB_DIR}/${_name}/.index"             &&
         _temp cache clear                             &&
-        _git checkpoint "${NB_DIR}/${_name}" "[nb] Initialize"
+        _git checkpoint "[nb] Initialize notebook '${_name}'"
     fi && printf "Added notebook: %s\\n" "$(_color_primary "${_name}")"
-  }
-
-  # Usage: _notebooks_add_new [<notebook>...]
-  _notebooks_add_new() {
-    local _notebook_list=("${@:-}")
-
-    [[ ! -d "${NB_DIR}" ]] && return 0
-
-    if [[ -z "${1:-}" ]]
-    then
-      _notebook_list=($(ls -1 "${NB_DIR}"))
-    fi
-
-    for __notebook_name in "${_notebook_list[@]:-}"
-    do
-      if [[ -d "${NB_DIR}/${__notebook_name}"         ]] &&
-         [[ ! -d "${NB_DIR}/${__notebook_name}/.git"  ]]
-      then
-          git -C "${NB_DIR}/${__notebook_name}" init &>/dev/null  &&
-          touch "${NB_DIR}/${__notebook_name}/.index"             &&
-          _temp cache clear                                       &&
-          _git checkpoint "${NB_DIR}/${__notebook_name}" "[nb] Initialize"
-      fi
-    done
   }
 
   # _notebooks_current()
@@ -6367,7 +6282,6 @@ HEREDOC
     _notebooks_validate_name "${_name}"
 
     if [[ ! -d "${NB_DIR}/${_name}"        ]] ||
-       [[ ! -e "${NB_DIR}/${_name}/.git"   ]] ||
        [[ ! -e "${NB_DIR}/${_name}/.index" ]]
     then
       _exit_1 printf "Notebook not found: %s\\n" "$(_color_primary "${_name}")"
@@ -6438,6 +6352,8 @@ Please type $(_color_primary "${_name}") to confirm: " __response
       fi
     fi &&
       _temp cache clear &&
+        _git checkpoint "[nb] Delete notebook '${_name}'" &&
+
       printf "Notebook deleted: %s\\n" "$(_color_primary "${_name}")"
   }
 
@@ -6526,7 +6442,7 @@ Please type $(_color_primary "${_name}") to confirm: " __response
 
     cp -R "${_path}" "${_target_path}"  &&
       _temp cache clear                 &&
-      _notebooks_add_new                &&
+      _git checkpoint "[nb] Imported notebook '${_target_basename}'"  &&
       printf "Imported notebook: %s\\n" \
         "$(_color_primary "$(basename "${_target_path}")")"
   }
@@ -6537,25 +6453,14 @@ Please type $(_color_primary "${_name}") to confirm: " __response
   #   _notebooks_init [<path> [<remote_url>]]
   _notebooks_init() {
     local _path=
-    local _remote_url=
 
     for __arg in "${@:-}"
     do
-      if _string_is_url "${__arg}" && [[ -z "${_remote_url:-}" ]]
-      then
-        _remote_url="${__arg}"
-      elif [[ -z "${_path:-}" ]]
+      if [[ -z "${_path:-}" ]]
       then
         _path="${__arg}"
       fi
     done
-
-    if [[ -n "${_remote_url:-}" ]] && [[ -z "${_path}" ]]
-    then
-      _exit_1 printf \
-        "Must specify a <path> when cloning from <remote-url>.\\n%s\\n" \
-        "$(_help "notebooks")"
-    fi
 
     if [[ -n "${_path:-}" ]]
     then
@@ -6575,30 +6480,19 @@ Please type $(_color_primary "${_name}") to confirm: " __response
       _path="${_CURRENT_WORKING_DIR}"
     fi
 
-    if [[ -d "${_path}"       ]] &&
-       [[ -d "${_path}/.git"  ]]
+    if [[ -d "${_path}"       ]]
     then
       local _error_message=
 
       if [[ -f "${_path}/.index" ]]
       then
         _error_message="Notebook exists: $(_color_primary "${_path}")"
-      else
-        _error_message="Git repository exists: $(_color_primary "${_path}")"
       fi
 
       _exit_1 printf "%s\\n" "${_error_message}"
     fi
 
-    if [[ "${_path}" != "${_CURRENT_WORKING_DIR}" ]] &&
-       [[ -n "${_remote_url:-}"                   ]]
-    then
-      git clone "${_remote_url}" "${_path}"
-    else
-        git -C "${_path}" init &>/dev/null  &&
-        touch "${_path}/.index"             &&
-        _git checkpoint "${_path}" "[nb] Initialize"
-    fi
+    touch "${_path}/.index"
 
     printf "Initialized local notebook: %s\\n" "$(_color_primary "${_path}")"
   }
@@ -6661,9 +6555,6 @@ Please type $(_color_primary "${_name}") to confirm: " __response
     if [[ -z "${_query_names[*]:-}" ]]
     then
       _notebook_names=($(ls -1 "${NB_DIR}"))
-
-      _notebooks_add_new "${_notebook_names[@]:-}"
-
       set +f
       _notebook_paths=($(ls -1 -d "${NB_DIR}"/*))
       set -f
@@ -6674,8 +6565,6 @@ Please type $(_color_primary "${_name}") to confirm: " __response
         _notebook_paths=("${_LOCAL_NOTEBOOK_PATH}" "${_notebook_paths[@]:-}")
       fi
     else
-      _notebooks_add_new
-
       for __name in "${_query_names[@]}"
       do
         _notebook_names+=("${__name}")
@@ -6691,7 +6580,7 @@ Please type $(_color_primary "${_name}") to confirm: " __response
 
     for ((i=0; i < "${#_notebook_names[@]}"; i++))
     do
-      if [[ -e "${_notebook_paths[i]}/.git" ]]
+      if [[ -e "${_notebook_paths[i]}" ]]
       then # it's a git repository.
         local _notebook_line=
         local _origin_url=
@@ -6867,7 +6756,7 @@ Please type $(_color_primary "${_name}") to confirm: " __response
         if [[ ! -e "${_dotfile_path}" ]]
         then
           touch "${_dotfile_path}" &&
-            _git checkpoint "${_notebook_path}" "[nb] Archived"
+            _git checkpoint "[nb] Archived"
         fi
 
         printf "%s archived.\\n" "$(_color_primary "${_notebook_name}")"
@@ -6884,7 +6773,7 @@ Please type $(_color_primary "${_name}") to confirm: " __response
         if [[ -e "${_dotfile_path}" ]]
         then
           rm "${_dotfile_path:?}" &&
-            _git checkpoint "${_notebook_path}" "[nb] Unarchived"
+            _git checkpoint "[nb] Unarchived"
         fi
 
         printf "%s unarchived.\\n" "$(_color_primary "${_notebook_name}")"
@@ -7031,7 +6920,6 @@ HEREDOC
 
       while [[ -n "${_maybe_notebook_path:-}"         ]] &&
             ! {
-              [[ -d "${_maybe_notebook_path}/.git"    ]] &&
               [[ -f "${_maybe_notebook_path}/.index"  ]]
             }
       do
@@ -7058,8 +6946,7 @@ HEREDOC
            [[ -n "${_local_notebook_path:-}"        ]]
         then
           _notebook_path="${_local_notebook_path}"
-        elif [[ -d "${NB_DIR}/${_selector_notebook:-}/.git"    ]] &&
-             [[ -f "${NB_DIR}/${_selector_notebook:-}/.index"  ]]
+        elif [[ -f "${NB_DIR}/${_selector_notebook:-}/.index"  ]]
         then
           _notebook_path="${NB_DIR}/${_selector_notebook}"
         fi
@@ -7145,7 +7032,7 @@ HEREDOC
 
     local _remote_url=
     _remote_url="$(
-      git -C "${_notebook_path}" config --get remote.origin.url || echo ''
+      git -C "${NB_DIR}" config --get remote.origin.url || echo ''
     )"
 
     if [[ -n "${_remote_url:-}" ]]
@@ -7184,7 +7071,7 @@ Examples:
 HEREDOC
     fi
 
-    if [[ -d "${NB_DIR}/${_name}/.git" ]]
+    if [[ -d "${NB_DIR}/${_name}" ]]
     then
       printf "%s\\n" "${_name}" > "${NB_DIR}/.current"
 
@@ -7214,7 +7101,8 @@ HEREDOC
 
   if ! _contains "${_subcommand:-}" "current" "list" "show"
   then
-    _notebooks_add_new
+    local _notebook_list=
+    _notebook_list=($(ls -1 "${NB_DIR}" &> /dev/null))
   fi
 
   case "${_subcommand}" in
@@ -7917,14 +7805,14 @@ _main() {
 
       if [[ "${_SUBCOMMAND}" =~ ${_GIT_SUBCOMMANDS_PATTERN} ]]
       then
-        if _git dirty "${NB_NOTEBOOK_PATH}"
+        if _git dirty
         then
           _index reconcile
 
-          _git checkpoint "${NB_NOTEBOOK_PATH}" --spinner
-        elif _git autosyncable "${NB_NOTEBOOK_PATH}"
+          _git checkpoint --spinner
+        elif _git autosyncable
         then
-          (_git checkpoint "${NB_NOTEBOOK_PATH}" &>/dev/null) &
+          (_git checkpoint &>/dev/null) &
         fi
       fi
 
@@ -8478,9 +8366,7 @@ _add() {
     _index add                                                \
       "${_target_basename}"                                   \
       "${_notebook_path:?}/${_target_folder_relative_path:-}" &&
-      _git checkpoint                                         \
-        "${_notebook_path}"                                   \
-        "[nb] Add: ${_target_unique_relative_path}"
+      _git checkpoint "[nb] Add: ${_target_unique_relative_path} to '$(_notebooks current)'"
 
     local _info
     _info="$(
@@ -8772,7 +8658,7 @@ _bookmark() {
           local _maybe_notebook="${_selector:-}"
           _maybe_notebook="$(printf "%s\\n" "${_maybe_notebook}" | sed 's/\:$//')"
 
-          if [[ -d "${NB_DIR}/${_maybe_notebook}/.git" ]]
+          if [[ -d "${NB_DIR}/${_maybe_notebook}" ]]
           then
             _notebooks "${_subcommand}" "${_maybe_notebook}" && return 0
           fi
@@ -9597,7 +9483,7 @@ $(_color_primary "Proceed?")  $(_color_brackets "y/N") " __yn
     then
       _index delete "${_basename}" "${_folder_path}"
 
-      _git checkpoint "${_notebook_path}" "[nb] Delete: ${_relative_path}"
+      _git checkpoint "[nb] Delete: ${_relative_path} from '$(_notebooks current)'"
 
       printf "Deleted:  %s\\n" "${_info}"
     fi
@@ -9824,7 +9710,7 @@ _edit() {
       rm "${_decrypted_path:?}"
     fi
 
-    _git checkpoint "${_notebook_path}" "[nb] Edit: ${_relative_path}"
+    _git checkpoint "[nb] Edit: ${_relative_path}"
 
     if [[ "${_before}" != "${_after}" ]]
     then
@@ -10309,6 +10195,7 @@ Usage:
 
 Options:
   --convert  Convert HTML content to Markdown.
+  --encrypt  Encrypt the file(s).
 
 Subcommands:
   (default) Copy or download the file(s) at <path> or <url>.
@@ -10561,7 +10448,7 @@ _import() {
             _index add              \
               "${_target_basename}" \
               "${_notebook_path}/${_target_folder_relative_path}" &&
-                _git checkpoint "${_notebook_path}" "[nb] Import: ${_target_relative_path}"
+                _git checkpoint "[nb] Import: ${_target_relative_path} to '$(_notebooks current)'"
 
                 printf "Imported %s from %s\\n"                     \
                 "$(_show "${_target_relative_path}" --info-line)" \
@@ -10610,12 +10497,8 @@ _import() {
         _index add              \
           "${_target_basename}" \
           "${_notebook_path}/${_target_folder_relative_path:-}" &&
-            _git checkpoint "${_notebook_path}" "\
-[nb] Import: ${_target_relative_path}
+            _git checkpoint "[nb] Import: ${_target_relative_path} Source: ${_url}"
 
-Source:
-${_url}
-"
       printf "Imported %s from %s\\n"                     \
         "$(_show "${_target_relative_path}" --info-line)" \
         "$(_color_primary "${_url}")"
@@ -10645,7 +10528,7 @@ ${_url}
           _index add              \
             "${_target_basename}" \
             "${_notebook_path}/${_target_folder_relative_path:-}"   &&
-              _git checkpoint "${_notebook_path}" "[nb] Import: ${_target_relative_path}"
+              _git checkpoint "[nb] Import: ${_target_relative_path} to '$(_notebooks current)'"
 
         printf "Imported %s from %s\\n"                     \
           "$(_show "${_target_relative_path}" --info-line)" \
@@ -10931,18 +10814,13 @@ $(_color_primary "Proceed?")  $(_color_brackets "y/N") " __yn
         _index add  "${_target_basename}" "${_target_folder_path}"
     fi || _exit_1 printf "Move index update failed.\\n"
 
-    _git checkpoint "${_target_notebook_path}"  \
-      "[nb] Move: ${_source_relative_path} to ${_target_relative_path}"
+    _git checkpoint "[nb] Move: ${_source_relative_path} to ${_target_relative_path}"
   else
     _index delete "${_source_basename}" "${_source_folder_path}"
 
-    _git checkpoint "${_source_notebook_path}"  \
-      "[nb] Delete: ${_source_relative_path}"
-
     _index add "${_target_basename}" "${_target_folder_path}"
 
-    _git checkpoint "${_target_notebook_path}"  \
-      "[nb] Add: ${_target_relative_path}"
+    _git checkpoint "[nb] Move: ${_source_relative_path} from '$(_notebooks current --name)' to '${_target_selector}'"
   fi
 
   printf "Moved to: %s\\n" "$(
@@ -11113,7 +10991,7 @@ _pin() {
         rm -f "${_pindex_path:?}"
       fi
 
-      _git checkpoint "${_notebook_path}" "[nb] Unpinned: ${_relative_path}"
+      _git checkpoint "[nb] Unpinned: ${_relative_path}"
 
       printf "Unpinned: %s\\n" "$(_show "${_selector}" --info-line)"
       ;;
@@ -11129,7 +11007,7 @@ _pin() {
         _sed_i -e '/^[[:space:]]*$/d'    "${_pindex_path}" # remove blank lines
       fi
 
-      _git checkpoint "${_notebook_path}" "[nb] Pinned: ${_relative_path}"
+      _git checkpoint "[nb] Pinned: ${_relative_path}"
 
       printf "Pinned: %s\\n" "$(_show "${_selector}" --info-line)"
       ;;
@@ -11658,7 +11536,7 @@ _search() {
 
           if [[ "${#_queries[@]}" -le 1 ]]
           then
-            GIT_PAGER='' git -C "${_notebook_path}"     \
+            GIT_PAGER='' git -C "${NB_DIR}"     \
               grep                                      \
               --extended-regexp                         \
               --ignore-case                             \
@@ -11677,11 +11555,11 @@ _search() {
                 if [[ "${__search_group}" == "index" ]]
                 then
                   # list all .index files
-                  GIT_PAGER='' git -C "${_notebook_path}" \
+                  GIT_PAGER='' git -C "${NB_DIR}" \
                     ls-files -z '*.index'
                 else
                   # list all non-.index files
-                  GIT_PAGER='' git -C "${_notebook_path}" \
+                  GIT_PAGER='' git -C "${NB_DIR}" \
                     ls-files -z -- . ':!:*.index'
                 fi
               } | {
@@ -11705,7 +11583,7 @@ _search() {
                     cat
                   fi | {
                     GIT_PAGER='' xargs "${_xargs[@]}" \
-                      git -C "${_notebook_path}"      \
+                      git -C "${NB_DIR}"      \
                       grep                            \
                       --extended-regexp               \
                       --files-with-matches            \
@@ -11744,7 +11622,7 @@ _search() {
                   done
 
                   GIT_PAGER='' xargs "${_xargs[@]}"           \
-                    git -C "${_notebook_path}"                \
+                    git -C "${NB_DIR}"                \
                     grep                                      \
                     --extended-regexp                         \
                     --ignore-case                             \
@@ -11755,7 +11633,7 @@ _search() {
                     || return 0  # Don't fail out within a single scope.
                 else
                   GIT_PAGER='' xargs "${_xargs[@]}"           \
-                    git -C "${_notebook_path}"                \
+                    git -C "${NB_DIR}"                \
                     grep                                      \
                     --extended-regexp                         \
                     --ignore-case                             \
@@ -12479,7 +12357,7 @@ _show() {
     done
 
     _matches=($(
-      GIT_PAGER='' git -C "${_notebook_path}" \
+      GIT_PAGER='' git -C "${NB_DIR}" \
         grep                                  \
         --color=never                         \
         --extended-regexp                     \
@@ -12770,7 +12648,7 @@ _show() {
 
     _maybe_notebook="${_maybe_notebook%:}"
 
-    if [[ -d "${NB_DIR}/${_maybe_notebook}/.git" ]]
+    if [[ -d "${NB_DIR}/${_maybe_notebook}" ]]
     then
       if ((_print_path))
       then
@@ -12942,7 +12820,7 @@ _show() {
 
   if ((_print_added))
   then
-    git -C "${_notebook_path}" --no-pager \
+    git -C "${NB_DIR}" --no-pager \
       log                                 \
       --follow                            \
       --diff-filter=A                     \
@@ -12955,7 +12833,7 @@ _show() {
 
   if ((_print_updated))
   then
-    git -C "${_notebook_path}" --no-pager \
+    git -C "${NB_DIR}" --no-pager \
       log                                 \
       -1                                  \
       --follow                            \
@@ -14260,10 +14138,10 @@ _remote() {
   local _notebook_path
   _notebook_path="$(_notebooks current --path)"
 
-  if [[ "$(git -C "${_notebook_path}" remote get-url origin 2>/dev/null)" ]]
+  if [[ "$(git -C "${NB_DIR}" remote get-url origin 2>/dev/null)" ]]
   then
     _remote_exists=1
-    _existing_url="$(git -C "${_notebook_path}" remote get-url origin)"
+    _existing_url="$(git -C "${NB_DIR}" remote get-url origin)"
   fi
 
   case "${_subcommand}" in
@@ -14291,7 +14169,7 @@ $(_color_primary "Proceed?") $(_color_brackets "y/N") " __yn
           done
         fi
 
-        git -C "${_notebook_path}" remote rm origin &&
+        git -C "${NB_DIR}" remote rm origin &&
           printf "Removed remote: %s\\n"            \
             "$(_color_primary "${_existing_url}")"  &&
               return 0
@@ -14357,14 +14235,14 @@ $(_color_primary "Proceed?") $(_color_brackets "y/N") " __yn
         _subcommand="set-url"
       fi
 
-      git -C "${_notebook_path}" remote "${_subcommand}" origin "${_url}" &&
+      git -C "${NB_DIR}" remote "${_subcommand}" origin "${_url}" &&
         printf "Remote set to: %s\\n" "$(_color_primary "${_url}")"       &&
           return 0
       ;;
     *)
       if ((_remote_exists))
       then
-        git -C "${_notebook_path}" remote get-url origin && return 0
+        git -C "${NB_DIR}" remote get-url origin && return 0
       else
         _warn printf "No remote configured.\\n"
         return 1
@@ -15253,7 +15131,7 @@ _status() {
   local _notebook_path
   _notebook_path="$(_notebooks current --path)"
 
-  git -C "${_notebook_path}" status
+  git -C "${NB_DIR}" status
 }
 
 # sync ################################################################### sync
@@ -15293,115 +15171,39 @@ Sync Conflict Resolution:
     https://github.com/xwmx/nb#sync-conflict-resolution
 HEREDOC
 _sync() {
-  local _notebooks=()
-  local _sync_all=0
-
-  if [[ "${1:-}" =~ ^-a$|^--all$ ]]
-  then
-    _sync_all=1
-
-    local _notebook_names
-    _notebooks=($(_notebooks --names --no-color --unarchived))
-  else
-    _notebooks=($(_notebooks current))
-  fi
-
   local _sync_successful=0
   local _sync_started=0
-  local _syncable_count=0
+  local _notebook_sync_successful=0
 
-  for __notebook in "${_notebooks[@]:-}"
-  do
-    if [[ "${__notebook}" == "local"      ]] &&
-       [[ -n "${_LOCAL_NOTEBOOK_PATH:-}"  ]]
-    then
-      NB_NOTEBOOK_PATH="${_LOCAL_NOTEBOOK_PATH}"
-    else
-      NB_NOTEBOOK_PATH="${NB_DIR}/${__notebook}"
-    fi
+  _remote &>/dev/null
 
-    if ((_sync_all))
-    then
-      _remote &>/dev/null || continue
-    else
-      _remote 1>/dev/null || {
-        cat <<HEREDOC
+  if ! ((_sync_started))
+  then
+    printf "Syncing: "
+    _sync_started=1
+    GIT_TERMINAL_PROMPT=0 NB_AUTO_SYNC=1
+    _git sync "${NB_DIR}"
+  fi && _notebook_sync_successful=1
 
-Set the remote for the current notebook:
-
-  $(_color_primary "${_ME} remote set <url>")
-
-Set the remote for a notebook named "example":
-
-  $(_color_primary "${_ME} example:remote set <url>")
-
-HEREDOC
-        return 1
-      }
-    fi
-
-    if ! ((_sync_started))
-    then
-      printf "Syncing: "
-      _sync_started=1
-    fi
-
-    printf "%s..." "$(_color_primary "${__notebook}")"
-
-    local _notebook_sync_successful=0
-
-    _syncable_count="$((_syncable_count+1))"
-
-    if ((_sync_all))
-    then # sync without prompt in background
-      GIT_TERMINAL_PROMPT=0 NB_AUTO_SYNC=1 \
-        _git checkpoint "${NB_NOTEBOOK_PATH}" "[nb] Sync" --spinner
-    else # sync with prompt in foreground
-      GIT_TERMINAL_PROMPT=1 NB_AUTO_SYNC=0 \
-        _git checkpoint "${NB_NOTEBOOK_PATH}" "[nb] Sync" --spinner
-
-      _git sync "${NB_NOTEBOOK_PATH}"
-    fi && _notebook_sync_successful=1
-
-    if ! ((_notebook_sync_successful))            ||
-       _git dirty           "${NB_NOTEBOOK_PATH}" ||
-       _git out_of_sync     "${NB_NOTEBOOK_PATH}"
-    then
-      _exit_1 cat <<HEREDOC
-Sync failed.
-
+  if ! ((_notebook_sync_successful)) ||
+        _git dirty                   ||
+        _git out_of_sync
+  then
+    _exit_1 cat <<HEREDOC
+Failed.
 Reason unknown, but likely one of the following:
-
 - Authentication error or credentials not configured.
 - Network unavailable.
 - Misconfigured remote URL.
-
-Configuring Git Credentials:
-  https://github.com/xwmx/nb#private-repositories-and-git-credentials
 HEREDOC
-    fi
-  done && ((_syncable_count)) && _sync_successful=1
+  fi && _sync_successful=1
 
   if ((_sync_successful))
   then
-    printf "Done!\\n"
-  elif ! ((_syncable_count))
-  then
-    _exit_1 cat <<HEREDOC
-No unarchived notebooks with remotes found.
-
-Set the remote for the current notebook:
-
-  $(_color_primary "${_ME} remote set <url>")
-
-Set the remote for a notebook named "example":
-
-  $(_color_primary "${_ME} example:remote set <url>")
-
-HEREDOC
+    git -C "${NB_DIR}" pull origin master &>/dev/null
+    printf $(_color_primary "Done!\\n")
   else
     printf "\\n"
-
     _exit_1 printf "Sync failed.\\n"
   fi
 }
