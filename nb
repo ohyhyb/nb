@@ -10442,10 +10442,9 @@ _import() {
 
         if ((_encrypt))
         then
-          local _decrypted_path="${__path}"
           local _encrypted_path="${_notebook_path}/${_target_relative_path}.enc"
 
-          _encrypt_file "${_decrypted_path}" "${_encrypted_path}" "${_password}"
+          _encrypt_file "${__path}" "${_encrypted_path}" "${_password}"
             _index add "${_target_basename}.enc" &&
             _git checkpoint "[nb] Import: ${_target_relative_path} to '$(_notebooks current)'"
 
@@ -10464,9 +10463,9 @@ _import() {
               "${_notebook_path}/${_target_folder_relative_path}" &&
                 _git checkpoint "[nb] Import: ${_target_relative_path} to '$(_notebooks current)'"
 
-                printf "Imported %s from %s\\n"                     \
-                "$(_show "${_target_relative_path}" --info-line)" \
-                "$(_color_primary "${__path}")"
+            printf "Imported %s from %s\\n"                     \
+              "$(_show "${_target_relative_path}" --info-line)" \
+              "$(_color_primary "${__path}")"
         fi
       done
       ;;
@@ -10490,6 +10489,37 @@ _import() {
         _target_folder_relative_path="${_target_relative_path%\/*}"
       fi
 
+      if ((_encrypt))
+      then
+        if [[ "$NB_ENCRYPTION_TOOL" != "gpg-key" ]]
+        then
+          if [[ -z "${_password}" ]]
+          then
+            # request password without displaying it
+            printf "%s: " "$(_color_primary "Password")"
+            read -r -s _password </dev/tty
+            printf "\\n" # print newline to stop `read`
+
+            if [[ -z "${_password:-}" ]]
+            then
+              _exit_1 printf "Password required.\\n"
+            fi
+
+            local _password_confirmation=
+
+            # request password without displaying it
+            printf "%s: " "$(_color_primary "Confirm Password")"
+            read -r -s _password_confirmation </dev/tty
+            printf "\\n" # print newline to stop `read`
+
+            if [[ "${_password}" != "${_password_confirmation}" ]]
+            then
+              _exit_1 printf "Password mismatch.\\n"
+            fi
+          fi
+        fi
+      fi
+
       _target_basename="${_target_relative_path##*\/}"
 
       if ((_convert))
@@ -10508,14 +10538,31 @@ _import() {
           _exit_1 printf "Unable to download: %s\\n" "${_url}"
         fi
       fi &&
+
+      if ((_encrypt))
+      then
+        local _encrypted_path="${_notebook_path}/${_target_relative_path}.enc"
+
+        _encrypt_file "${_notebook_path}/${_target_relative_path}" "${_encrypted_path}" "${_password}"
+        rm "${_notebook_path}/${_target_relative_path}"
+        _index add                  \
+          "${_target_basename}.enc" \
+          "${_notebook_path}/${_target_folder_relative_path:-}" &&
+            _git checkpoint "[nb] Import: ${_target_relative_path}.enc Source: ${_url}"
+
+        printf "Imported %s from %s\\n"                     \
+                "$(_show "${_encrypted_path}" --info-line)" \
+                "$(_color_primary "${_url}")"
+      else
         _index add              \
           "${_target_basename}" \
           "${_notebook_path}/${_target_folder_relative_path:-}" &&
             _git checkpoint "[nb] Import: ${_target_relative_path} Source: ${_url}"
 
-      printf "Imported %s from %s\\n"                     \
-        "$(_show "${_target_relative_path}" --info-line)" \
-        "$(_color_primary "${_url}")"
+        printf "Imported %s from %s\\n"                           \
+                "$(_show "${_target_relative_path}" --info-line)" \
+                "$(_color_primary "${_url}")"
+      fi
       ;;
     move)
       for __path in "${_paths[@]:-}"
