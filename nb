@@ -14047,6 +14047,7 @@ $(_color_primary "Reinstall?") $(_color_brackets "y/N") " __yn
         then
           printf "Plugin installed:\\n%s\\n" \
             "$(_color_primary "${NB_DIR}/.plugins/${_basename}")"
+          _git checkpoint "[nb] Installed plugin: ${_basename}"
         else
           _exit_1 printf "Unable to install plugin: %s\\n" "${_path}"
         fi
@@ -14109,6 +14110,7 @@ $(_color_primary "Proceed?") $(_color_brackets "y/N") " __yn
       then
         printf "Plugin successfully uninstalled:\\n%s\\n" \
           "$(_color_primary "${_plugin_path}")"
+        _git checkpoint "[nb] Uninstalled plugin: ${_name}"
       else
         _exit_1 printf "Unable to uninstall plugin:\\n%s\\n" "${_plugin_path}"
       fi
