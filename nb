@@ -73,7 +73,7 @@ IFS=$'\n\t'
 # $_VERSION
 #
 # The most recent program version.
-_VERSION="6.0.0-alpha"
+_VERSION="6.0.0-alpha [hyb]"
 
 # $_ME
 #
@@ -3799,7 +3799,7 @@ $(_color_primary "Usage:")
   ${_ME} help [<subcommand>] [-p | --print]
   ${_ME} help [-c | --colors] | [-r | --readme] | [-s | --short] [-p | --print]
   ${_ME} history [<id> | <filename> | <path> | <title>]
-  ${_ME} import [copy | download | move] (<path>... | <url>) [--convert]
+  ${_ME} import [copy | download | move] (<path>... | <url>) [--convert] [-e | --encrypt]
   ${_ME} import notebook <path> [<name>]
   ${_ME} init [<remote-url>]
   ${_ME} list [-e [<length>] | --excerpt [<length>]] [--filenames]
@@ -3816,13 +3816,12 @@ $(_color_primary "Usage:")
           ([<notebook>:][<path>] | --reset | --to-bookmark | --to-note)
   ${_ME} notebooks [<name>] [--archived] [--global] [--local] [--names]
                [--paths] [--unarchived]
-  ${_ME} notebooks add <name> [<remote-url>]
+  ${_ME} notebooks add <name>
   ${_ME} notebooks (archive | open | peek | status | unarchive) [<name>]
   ${_ME} notebooks current [--path | --selected | --filename [<filename>]]
                        [--global | --local]
   ${_ME} notebooks delete <name> [-f | --force]
   ${_ME} notebooks (export <name> [<path>] | import <path>)
-  ${_ME} notebooks init [<path> [<remote-url>]]
   ${_ME} notebooks rename <old-name> <new-name>
   ${_ME} notebooks select <selector>
   ${_ME} notebooks show (<name> | <path> | <selector>) [--archived]
@@ -3851,7 +3850,7 @@ $(_color_primary "Usage:")
   ${_ME} show <notebook>
   ${_ME} subcommands [add <name>...] [alias <name> <alias>]
                  [describe <name> <usage>]
-  ${_ME} sync [-a | --all]
+  ${_ME} sync
   ${_ME} unpin [<notebook>:](<id> | <filename> | <path> | <title>)
   ${_ME} update
   ${_ME} use <notebook>
@@ -4438,8 +4437,7 @@ HEREDOC
   if [[ -d "${_GLOBAL_NOTEBOOK_PATH}" ]]
   then
     _exit_1 cat <<HEREDOC
-$(_color_primary "${_ME}") already initialized. To initialize a local notebook, use:
-  $(_color_primary "${_ME} notebooks init")
+$(_color_primary "${_ME}") already initialized.
 More Information:
   $(_color_primary "${_ME} help notebooks")
 HEREDOC
@@ -6046,13 +6044,12 @@ describe "notebooks" <<HEREDOC
 Usage:
   ${_ME} notebooks [<name>] [--archived] [--global] [--local] [--names]
                [--paths] [--unarchived]
-  ${_ME} notebooks add <name> [<remote-url>]
+  ${_ME} notebooks add <name>
   ${_ME} notebooks (archive | open | peek | status | unarchive) [<name>]
   ${_ME} notebooks current [--path | --selected | --filename [<filename>]]
                        [--global | --local]
   ${_ME} notebooks delete <name> [-f | --force]
   ${_ME} notebooks (export <name> [<path>] | import <path>)
-  ${_ME} notebooks init [<path> [<remote-url>]]
   ${_ME} notebooks rename <old-name> <new-name>
   ${_ME} notebooks select <selector>
   ${_ME} notebooks show (<name> | <path> | <selector>) [--archived]
@@ -14890,8 +14887,8 @@ $(for __editor in atom code emacs macdown mate micro nano pico subl vi vim
     $(_color_secondary " ---------------")
       Recipient used when encrypting with gpg-key.
 
-       • Supported Values: $(_color_primary "e-mail address"), $(_color_primary "fingerprint")
-       • Default Value:    $(_color_primary "NULL")")
+      • Supported Values: $(_color_primary "e-mail address"), $(_color_primary "fingerprint")
+      • Default Value:    $(_color_primary "NULL")")
 
   while ((${#}))
   do
@@ -15158,13 +15155,10 @@ _status() {
 
 describe "sync" <<HEREDOC
 Usage:
-  ${_ME} sync [-a | --all]
-
-Options:
-  -a, --all   Sync all unarchived notebooks.
+  ${_ME} sync
 
 Description:
-  Sync the current local notebook with the remote repository.
+  Sync with the remote repository.
 
 Private Repositories and Git Credentials:
   Syncing with private repositories requires configuring git to not prompt
