@@ -881,22 +881,6 @@ export _LOCAL_NOTEBOOK_PATH=
 # Description:
 #   Set the the notebook path variables to reflect the current environment.
 __set_notebook_paths() {
-  __set_local_notebook_path() {
-    if [[ "${PWD}" == "/" ]]
-    then
-      cd "${_CURRENT_WORKING_DIR}"
-      return 0
-    elif [[ -f "${PWD}/.index"  ]]
-    then
-      _LOCAL_NOTEBOOK_PATH="${PWD}"
-      cd "${_CURRENT_WORKING_DIR}"
-      return 0
-    else
-      cd ..
-      __set_local_notebook_path
-    fi
-  }; __set_local_notebook_path
-
   __set_global_notebook_path() {
     if [[ -e "${NB_DIR}/.current" ]]
     then
