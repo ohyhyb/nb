@@ -2,6 +2,50 @@
 
 load test_helper
 
+# local #######################################################################
+
+@test "'add <selector-with-folder-and-filename>' adds to local notebook." {
+  {
+    "${_NB}" init
+
+    "${_NB}" notebooks init "${_TMP_DIR}/Example Local"
+
+    cd "${_TMP_DIR}/Example Local"
+
+    [[ "$(pwd)" == "${_TMP_DIR}/Example Local" ]]
+
+  }
+
+  run "${_NB}" add  "Example Folder/Sample Folder/Demo Folder/Example File.md"  \
+    --title         "Title One"                                                 \
+    --content       "Content one."
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}" -eq 0 ]]
+
+  [[ -f "${_TMP_DIR}/Example Local/Example Folder/Sample Folder/Demo Folder/Example File.md" ]]
+
+  cat "${_TMP_DIR}/Example Local/Example Folder/Sample Folder/Demo Folder/Example File.md"
+
+  diff                                                                                          \
+    <(cat "${_TMP_DIR}/Example Local/Example Folder/Sample Folder/Demo Folder/Example File.md") \
+    <(printf "# Title One\\n\\nContent one.\\n")
+
+  cd "${_TMP_DIR}/Example Local" || return 1
+  while [[ -n "$(git status --porcelain)" ]]
+  do
+    sleep 1
+  done
+  git log | grep -q '\[nb\] Add'
+
+  [[ "${output}" =~ \
+       \ .*Example\ Folder/Sample\ Folder/Demo\ Folder/Example\ File.md ]]
+  [[ "${output}" =~ \
+       Added:\ .*[.*Example\ Folder/Sample\ Folder/Demo\ Folder/1.*]    ]]
+}
+
 # arguments ##################################################################
 
 @test "'add <selector-with-folder>/ --filename <relative-path> --folder <notebook> <folder> <content>' (slash) creates file at <selector-with-folder>/<relative-path> containing <notebook>, <folder>, and <content> as content." {
@@ -41,9 +85,9 @@ load test_helper
   git log | grep -q '\[nb\] Add'
 
   [[ "${output}" =~ \
-       \ .*Example\\\ Folder/Demo\\\ Folder/Sample\\\ Folder/Sample\\\ File.md ]]
+       \ .*Example\ Folder/Demo\ Folder/Sample\ Folder/Sample\ File.md ]]
   [[ "${output}" =~ \
-       Added:\ .*[.*Example\\\ Folder/Demo\\\ Folder/Sample\\\ Folder/1.*]     ]]
+       Added:\ .*[.*Example\ Folder/Demo\ Folder/Sample\ Folder/1.*]   ]]
 }
 
 # --filename ##################################################################
@@ -75,7 +119,7 @@ load test_helper
   git log | grep -q '\[nb\] Add'
 
   [[ "${output}" =~ \
-       Added:\ .*[.*Sample\\\ Folder/1.*].*\ .*Sample\\\ Folder/Sample\\\ File.md ]]
+       Added:\ .*[.*Sample\ Folder/1.*].*\ .*Sample\ Folder/Sample\ File.md ]]
 }
 
 @test "'add <selector-with-filename> --filename <relative-path>' option overrides selector with <relative-path>." {
@@ -106,7 +150,7 @@ load test_helper
   git log | grep -q '\[nb\] Add'
 
   [[ "${output}" =~ \
-       Added:\ .*[.*Sample\\\ Folder/1.*].*\ .*Sample\\\ Folder/Sample\\\ File.md ]]
+       Added:\ .*[.*Sample\ Folder/1.*].*\ .*Sample\ Folder/Sample\ File.md ]]
 }
 
 @test "'add <selector-with-folder>/ --filename <relative-path>' (slash) creates file at <selector-with-folder>/<relative-path>." {
@@ -137,9 +181,9 @@ load test_helper
   git log | grep -q '\[nb\] Add'
 
   [[ "${output}" =~ \
-       \ .*Example\\\ Folder/Sample\\\ Folder/Sample\\\ File.md ]]
+       \ .*Example\ Folder/Sample\ Folder/Sample\ File.md ]]
   [[ "${output}" =~ \
-       Added:\ .*[.*Example\\\ Folder/Sample\\\ Folder/1.*]     ]]
+       Added:\ .*[.*Example\ Folder/Sample\ Folder/1.*]   ]]
 }
 
 @test "'add <selector-with-folder>/ --filename <relative-path> --folder <folder>' (slash) creates file at <selector-with-folder>/<folder>/<relative-path>." {
@@ -170,9 +214,9 @@ load test_helper
   git log | grep -q '\[nb\] Add'
 
   [[ "${output}" =~ \
-       \ .*Example\\\ Folder/Demo\\\ Folder/Sample\\\ Folder/Sample\\\ File.md ]]
+       \ .*Example\ Folder/Demo\ Folder/Sample\ Folder/Sample\ File.md ]]
   [[ "${output}" =~ \
-       Added:\ .*[.*Example\\\ Folder/Demo\\\ Folder/Sample\\\ Folder/1.*]     ]]
+       Added:\ .*[.*Example\ Folder/Demo\ Folder/Sample\ Folder/1.*]   ]]
 }
 
 @test "'add <selector-with-folder> --filename <relative-path>' (no slash) creates file at relative-path> and <selector-with-folder>  as content." {
@@ -205,7 +249,7 @@ load test_helper
   git log | grep -q '\[nb\] Add'
 
   [[ "${output}" =~ \
-       Added:\ .*[.*Sample\\\ Folder/1.*].*\ .*Sample\\\ Folder/Sample\\\ File.md ]]
+       Added:\ .*[.*Sample\ Folder/1.*].*\ .*Sample\ Folder/Sample\ File.md ]]
 }
 
 # <folder>/ <filename> ########################################################
@@ -427,8 +471,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                ]]
-  [[ "${output}" =~ Example\\\ Folder/example-filename.md ]]
+  [[ "${output}" =~ Added:                              ]]
+  [[ "${output}" =~ Example\ Folder/example-filename.md ]]
 }
 
 @test "'add <name-1> <name-2> --type folder' (no slash) creates new folder with <name-1>." {
@@ -485,8 +529,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:            ]]
-  [[ "${output}" =~ Example\\\ Folder ]]
+  [[ "${output}" =~ Added:          ]]
+  [[ "${output}" =~ Example\ Folder ]]
 }
 
 @test "'add <folder>/ <folder-name> --type folder' (slash) creates new folder with <folder-name> in new <folder>." {
@@ -542,8 +586,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                ]]
-  [[ "${output}" =~ Example\\\ Folder/example-folder-name ]]
+  [[ "${output}" =~ Added:                              ]]
+  [[ "${output}" =~ Example\ Folder/example-folder-name ]]
 }
 
 # --folder option #############################################################
@@ -601,8 +645,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                ]]
-  [[ "${output}" =~ Example\\\ Folder/example-folder-name ]]
+  [[ "${output}" =~ Added:                              ]]
+  [[ "${output}" =~ Example\ Folder/example-folder-name ]]
 }
 
 @test "'add --folder <folder> --type folder' creates new folders without errors." {
@@ -658,7 +702,7 @@ load test_helper
   # Prints output:
 
   [[ "${output}" =~ Added:                      ]]
-  [[ "${output}" =~ Example\\\ Folder/folder    ]]
+  [[ "${output}" =~ Example\ Folder/folder      ]]
 }
 
 @test "'add --folder <folder> --filename' (no slash) creates new file and folder without errors." {
@@ -730,8 +774,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                ]]
-  [[ "${output}" =~ Example\\\ Folder/example-filename.md ]]
+  [[ "${output}" =~ Added:                              ]]
+  [[ "${output}" =~ Example\ Folder/example-filename.md ]]
 }
 
 @test "'add --folder <folder>' (no slash) creates new file and folder without errors." {
@@ -803,7 +847,7 @@ load test_helper
   # Prints output:
 
   [[ "${output}" =~ Added:                      ]]
-  [[ "${output}" =~ Example\\\ Folder/[0-9]+.md ]]
+  [[ "${output}" =~ Example\ Folder/[0-9]+.md   ]]
 }
 
 @test "'add --folder <folder>/ --filename' (slash) creates new file and folder without errors." {
@@ -868,8 +912,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                ]]
-  [[ "${output}" =~ Example\\\ Folder/example-filename.md ]]
+  [[ "${output}" =~ Added:                              ]]
+  [[ "${output}" =~ Example\ Folder/example-filename.md ]]
 }
 
 @test "'add --folder <folder>/' (slash) creates new file and folder without errors." {
@@ -938,8 +982,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                      ]]
-  [[ "${output}" =~ Example\\\ Folder/[0-9]+.md ]]
+  [[ "${output}" =~ Added:                    ]]
+  [[ "${output}" =~ Example\ Folder/[0-9]+.md ]]
 }
 
 # <id>/ #####################################################################
@@ -1015,10 +1059,10 @@ load test_helper
 
   # Prints output:
 
-  [[    "${output}" =~ Added:                             ]]
-  [[    "${output}" =~ 📂                                 ]]
-  [[    "${output}" =~ Example\\\ Folder/folder           ]]
-  [[ !  "${output}" =~ \.                                 ]]
+  [[    "${output}" =~ Added:                 ]]
+  [[    "${output}" =~ 📂                     ]]
+  [[    "${output}" =~ Example\ Folder/folder ]]
+  [[ !  "${output}" =~ \.                     ]]
 }
 
 @test "'add folder <id>/' (trailing slash) creates new nested folder with incremented name." {
@@ -1097,10 +1141,10 @@ load test_helper
 
   # Prints output:
 
-  [[    "${output}" =~ Added:                             ]]
-  [[    "${output}" =~ 📂                                 ]]
-  [[    "${output}" =~ Example\\\ Folder/folder-1         ]]
-  [[ !  "${output}" =~ \.                                 ]]
+  [[    "${output}" =~ Added:                   ]]
+  [[    "${output}" =~ 📂                       ]]
+  [[    "${output}" =~ Example\ Folder/folder-1 ]]
+  [[ !  "${output}" =~ \.                       ]]
 }
 
 @test "'add folder <id>/<folder>' creates new nested folder without errors." {
@@ -1170,11 +1214,11 @@ load test_helper
 
   # Prints output:
 
-  [[    "${output}" =~ Added:                             ]]
-  [[    "${output}" =~ 📂                                 ]]
-  [[    "${output}" =~ Example\\\ Folder/Sample\\\ Folder ]]
-  [[ !  "${output}" =~ \.                                 ]]
-  [[ !  "${output}" =~ folder                             ]]
+  [[    "${output}" =~ Added:                         ]]
+  [[    "${output}" =~ 📂                             ]]
+  [[    "${output}" =~ Example\ Folder/Sample\ Folder ]]
+  [[ !  "${output}" =~ \.                             ]]
+  [[ !  "${output}" =~ folder                         ]]
 }
 
 @test "'add <id>/ --filename' creates new note without errors." {
@@ -1246,8 +1290,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                ]]
-  [[ "${output}" =~ Example\\\ Folder/example-filename.md ]]
+  [[ "${output}" =~ Added:                              ]]
+  [[ "${output}" =~ Example\ Folder/example-filename.md ]]
 }
 
 @test "'add <id>/' creates new note without errors." {
@@ -1313,8 +1357,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                      ]]
-  [[ "${output}" =~ Example\\\ Folder/[0-9]+.md ]]
+  [[ "${output}" =~ Added:                    ]]
+  [[ "${output}" =~ Example\ Folder/[0-9]+.md ]]
 }
 
 # folder/ #####################################################################
@@ -1386,7 +1430,7 @@ load test_helper
 
   [[    "${output}" =~ Added:                   ]]
   [[    "${output}" =~ 📂                       ]]
-  [[    "${output}" =~ Example\\\ Folder/folder ]]
+  [[    "${output}" =~ Example\ Folder/folder   ]]
   [[ !  "${output}" =~ \.                       ]]
 }
 
@@ -1452,8 +1496,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                ]]
-  [[ "${output}" =~ Example\\\ Folder/example-filename.md ]]
+  [[ "${output}" =~ Added:                              ]]
+  [[ "${output}" =~ Example\ Folder/example-filename.md ]]
 }
 
 @test "'add <folder>/' creates new note without errors." {
@@ -1517,8 +1561,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                      ]]
-  [[ "${output}" =~ Example\\\ Folder/[0-9]+.md ]]
+  [[ "${output}" =~ Added:                    ]]
+  [[ "${output}" =~ Example\ Folder/[0-9]+.md ]]
 }
 
 # uniqueness ##################################################################
@@ -1586,8 +1630,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                                    ]]
-  [[ "${output}" =~ Example\\\ Folder/Sample\\\ Folder/example-filename-1.md  ]]
+  [[ "${output}" =~ Added:                                                ]]
+  [[ "${output}" =~ Example\ Folder/Sample\ Folder/example-filename-1.md  ]]
 }
 
 @test "'add folder <folder>/<folder>/<folder>' with existing folder at target creates folder with unique filename." {
@@ -1644,8 +1688,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                                ]]
-  [[ "${output}" =~ Example\\\ Folder/Sample\\\ Folder/Demo\\\ Folder-1   ]]
+  [[ "${output}" =~ Added:                                          ]]
+  [[ "${output}" =~ Example\ Folder/Sample\ Folder/Demo\ Folder-1   ]]
 }
 
 # error handling ##############################################################
@@ -1797,10 +1841,10 @@ load test_helper
 
   _folder_files=($(LC_ALL=C ls -a "${NB_DIR}/home/Example Folder"))
 
-  [[ ! -d "${NB_DIR}/home/Example Folder/Sample Folder"         ]]
-  [[ "${#_folder_files[@]}" == 3                                ]]
-  [[ "${_folder_files[2]}"  == ".index"                         ]]
-  [[ "${_folder_files[3]}"  != "Sample Folder"                  ]]
+  [[ ! -d "${NB_DIR}/home/Example Folder/Sample Folder"       ]]
+  [[ "${#_folder_files[@]}" == 3                              ]]
+  [[ "${_folder_files[2]}"  == ".index"                       ]]
+  [[ "${_folder_files[3]}"  != "Sample Folder"                ]]
 
   # Commits to git:
 
@@ -1827,8 +1871,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:             ]]
-  [[ "${output}" =~ Example\\\ Folder  ]]
+  [[ "${output}" =~ Added:           ]]
+  [[ "${output}" =~ Example\ Folder  ]]
 }
 
 @test "'add folder <folder>/<folder>' creates new folder without errors." {
@@ -1904,8 +1948,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                              ]]
-  [[ "${output}" =~ Example\\\ Folder/Sample\\\ Folder  ]]
+  [[ "${output}" =~ Added:                          ]]
+  [[ "${output}" =~ Example\ Folder/Sample\ Folder  ]]
 }
 
 @test "'add folder <folder>/<folder>/<folder>' creates new folder without errors." {
@@ -1997,8 +2041,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                            ]]
-  [[ "${output}" =~ Example\\\ Folder/Sample\\\ Folder/Demo\\\ Folder ]]
+  [[ "${output}" =~ Added:                                      ]]
+  [[ "${output}" =~ Example\ Folder/Sample\ Folder/Demo\ Folder ]]
 }
 
 # --type folder ###############################################################
@@ -2063,8 +2107,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:            ]]
-  [[ "${output}" =~ Example\\\ Folder ]]
+  [[ "${output}" =~ Added:          ]]
+  [[ "${output}" =~ Example\ Folder ]]
 }
 
 @test "'add <folder>/<folder> --type folder' creates new folder without errors." {
@@ -2133,8 +2177,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                              ]]
-  [[ "${output}" =~ Example\\\ Folder/Sample\\\ Folder  ]]
+  [[ "${output}" =~ Added:                          ]]
+  [[ "${output}" =~ Example\ Folder/Sample\ Folder  ]]
 }
 
 @test "'add <folder>/<folder>/<folder> --type folder' creates new folder without errors." {
@@ -2226,8 +2270,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                            ]]
-  [[ "${output}" =~ Example\\\ Folder/Sample\\\ Folder/Demo\\\ Folder ]]
+  [[ "${output}" =~ Added:                                      ]]
+  [[ "${output}" =~ Example\ Folder/Sample\ Folder/Demo\ Folder ]]
 }
 
 # folder/example.md ###########################################################
@@ -2292,8 +2336,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                ]]
-  [[ "${output}" =~ Example\\\ Folder/example-filename.md ]]
+  [[ "${output}" =~ Added:                              ]]
+  [[ "${output}" =~ Example\ Folder/example-filename.md ]]
 }
 
 @test "'add <folder>/<folder>/example.md' creates new note without errors." {
@@ -2356,21 +2400,21 @@ load test_helper
 
   # Adds to index:
 
-  [[ -e "${NB_DIR}/home/.index"                                       ]]
-  [[ "$(ls "${NB_DIR}/home")" == "$(cat "${NB_DIR}/home/.index")"     ]]
+  [[ -e "${NB_DIR}/home/.index"                                         ]]
+  [[ "$(ls "${NB_DIR}/home")" == "$(cat "${NB_DIR}/home/.index")"       ]]
 
-  [[ -e "${NB_DIR}/home/Example Folder/.index"                        ]]
+  [[ -e "${NB_DIR}/home/Example Folder/.index"                          ]]
   [[ "$(ls "${NB_DIR}/home/Example Folder")" == \
-       "$(cat "${NB_DIR}/home/Example Folder/.index")"                ]]
+       "$(cat "${NB_DIR}/home/Example Folder/.index")"                  ]]
 
-  [[ -e "${NB_DIR}/home/Example Folder/Sample Folder/.index"          ]]
+  [[ -e "${NB_DIR}/home/Example Folder/Sample Folder/.index"            ]]
   [[ "$(ls "${NB_DIR}/home/Example Folder/Sample Folder")" == \
-       "$(cat "${NB_DIR}/home/Example Folder/Sample Folder/.index")"  ]]
+       "$(cat "${NB_DIR}/home/Example Folder/Sample Folder/.index")"    ]]
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                                  ]]
-  [[ "${output}" =~ Example\\\ Folder/Sample\\\ Folder/example-filename.md  ]]
+  [[ "${output}" =~ Added:                                              ]]
+  [[ "${output}" =~ Example\ Folder/Sample\ Folder/example-filename.md  ]]
 }
 
 @test "'add <folder>/<folder>/example.md' with no created note deletes empty ancestor folders." {
@@ -2490,20 +2534,20 @@ load test_helper
 
   # Adds to index:
 
-  [[ -e "${NB_DIR}/home/.index"                                       ]]
-  [[ "$(ls "${NB_DIR}/home")" == "$(cat "${NB_DIR}/home/.index")"     ]]
+  [[ -e "${NB_DIR}/home/.index"                                         ]]
+  [[ "$(ls "${NB_DIR}/home")" == "$(cat "${NB_DIR}/home/.index")"       ]]
 
-  [[ -e "${NB_DIR}/home/Example Folder/.index"                        ]]
+  [[ -e "${NB_DIR}/home/Example Folder/.index"                          ]]
   [[ "$(ls "${NB_DIR}/home/Example Folder")" == \
        "$(cat "${NB_DIR}/home/Example Folder/.index")" ]]
 
-  [[ -e "${NB_DIR}/home/Example Folder/Sample Folder/.index"          ]]
+  [[ -e "${NB_DIR}/home/Example Folder/Sample Folder/.index"            ]]
   [[ "$(ls "${NB_DIR}/home/Example Folder/Sample Folder")" == \
-       "$(cat "${NB_DIR}/home/Example Folder/Sample Folder/.index")"  ]]
+       "$(cat "${NB_DIR}/home/Example Folder/Sample Folder/.index")"    ]]
   # Prints output:
 
-  [[ "${output}" =~ Added:                                                  ]]
-  [[ "${output}" =~ Example\\\ Folder/Sample\\\ Folder/example-filename.md  ]]
+  [[ "${output}" =~ Added:                                              ]]
+  [[ "${output}" =~ Example\ Folder/Sample\ Folder/example-filename.md  ]]
 }
 
 @test "'add <folder>/<folder>/example.md' with no created note deletes only empty ancestor folders." {
@@ -2643,23 +2687,23 @@ load test_helper
 
   # Adds to index:
 
-  [[ -e "${NB_DIR}/home/.index"                                                   ]]
-  [[ "$(ls "${NB_DIR}/home")" == "$(cat "${NB_DIR}/home/.index")"                 ]]
+  [[ -e "${NB_DIR}/home/.index"                                                     ]]
+  [[ "$(ls "${NB_DIR}/home")" == "$(cat "${NB_DIR}/home/.index")"                   ]]
 
-  [[ -e "${NB_DIR}/home/Example Folder/.index"                                    ]]
+  [[ -e "${NB_DIR}/home/Example Folder/.index"                                      ]]
   [[ "$(ls "${NB_DIR}/home/Example Folder")" == \
-       "$(cat "${NB_DIR}/home/Example Folder/.index")"                            ]]
+       "$(cat "${NB_DIR}/home/Example Folder/.index")"                              ]]
 
-  [[ -e "${NB_DIR}/home/Example Folder/Sample Folder/.index"                      ]]
+  [[ -e "${NB_DIR}/home/Example Folder/Sample Folder/.index"                        ]]
   [[ "$(ls "${NB_DIR}/home/Example Folder/Sample Folder")" == \
-       "$(cat "${NB_DIR}/home/Example Folder/Sample Folder/.index")"              ]]
+       "$(cat "${NB_DIR}/home/Example Folder/Sample Folder/.index")"                ]]
 
-  [[ -e "${NB_DIR}/home/Example Folder/Sample Folder/Demo Folder/.index"          ]]
+  [[ -e "${NB_DIR}/home/Example Folder/Sample Folder/Demo Folder/.index"            ]]
   [[ "$(ls "${NB_DIR}/home/Example Folder/Sample Folder/Demo Folder")" == \
-       "$(cat "${NB_DIR}/home/Example Folder/Sample Folder/Demo Folder/.index")"  ]]
+       "$(cat "${NB_DIR}/home/Example Folder/Sample Folder/Demo Folder/.index")"    ]]
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                                                ]]
-  [[ "${output}" =~ Example\\\ Folder/Sample\\\ Folder/Demo\\\ Folder/example-filename.md ]]
+  [[ "${output}" =~ Added:                                                          ]]
+  [[ "${output}" =~ Example\ Folder/Sample\ Folder/Demo\ Folder/example-filename.md ]]
 }

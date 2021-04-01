@@ -52,11 +52,11 @@ load test_helper
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[    "${status}" -eq 0                           ]]
-  [[    "${output}" =~  1                           ]]
-  [[    "${output}" =~  http:\\\ not\\\ a\\\ url.md ]]
-  [[    "${output}" =~  Example\ Title              ]]
-  [[ !  "${output}" =~  home                        ]]
+  [[    "${status}" -eq 0                     ]]
+  [[    "${output}" =~  1                     ]]
+  [[    "${output}" =~  http:\ not\ a\ url.md ]]
+  [[    "${output}" =~  Example\ Title        ]]
+  [[ !  "${output}" =~  home                  ]]
 }
 
 # folders #####################################################################
@@ -72,12 +72,12 @@ load test_helper
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[    "${status}" -eq 0                     ]]
-  [[    "${output}" =~  1                     ]]
-  [[    "${output}" =~  Example\\\ Folder/1   ]]
-  [[    "${output}" =~  example.md            ]]
-  [[    "${output}" =~  Example\ Title        ]]
-  [[ !  "${output}" =~  home                  ]]
+  [[    "${status}" -eq 0                   ]]
+  [[    "${output}" =~  1                   ]]
+  [[    "${output}" =~  Example\ Folder/1   ]]
+  [[    "${output}" =~  example.md          ]]
+  [[    "${output}" =~  Example\ Title      ]]
+  [[ !  "${output}" =~  home                ]]
 }
 
 @test "'show <relative-path> --info-line' exits with status 0 and prints nested folder info." {
@@ -91,11 +91,11 @@ load test_helper
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[    "${status}" -eq 0                                   ]]
-  [[    "${output}" =~  1                                   ]]
-  [[    "${output}" =~  Example\\\ Folder/1                 ]]
-  [[    "${output}" =~  Example\\\ Folder/Sample\\\ Folder  ]]
-  [[ !  "${output}" =~  home                                ]]
+  [[    "${status}" -eq 0                               ]]
+  [[    "${output}" =~  1                               ]]
+  [[    "${output}" =~  Example\ Folder/1               ]]
+  [[    "${output}" =~  Example\ Folder/Sample\ Folder  ]]
+  [[ !  "${output}" =~  home                            ]]
 }
 
 @test "'show <folder>/<id> --info-line' exits with status 0 and prints nested file info." {
@@ -109,12 +109,12 @@ load test_helper
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[    "${status}" -eq 0                     ]]
-  [[    "${output}" =~  1                     ]]
-  [[    "${output}" =~  Example\\\ Folder/1   ]]
-  [[    "${output}" =~  example.md            ]]
-  [[    "${output}" =~  Example\ Title        ]]
-  [[ !  "${output}" =~  home                  ]]
+  [[    "${status}" -eq 0                 ]]
+  [[    "${output}" =~  1                 ]]
+  [[    "${output}" =~  Example\ Folder/1 ]]
+  [[    "${output}" =~  example.md        ]]
+  [[    "${output}" =~  Example\ Title    ]]
+  [[ !  "${output}" =~  home              ]]
 }
 
 @test "'show <folder>/<id> --info-line' exits with status 0 and prints nested folder info." {
@@ -128,11 +128,11 @@ load test_helper
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[    "${status}" -eq 0                                   ]]
-  [[    "${output}" =~  1                                   ]]
-  [[    "${output}" =~  Example\\\ Folder/1                 ]]
-  [[    "${output}" =~  Example\\\ Folder/Sample\\\ Folder  ]]
-  [[ !  "${output}" =~  home                                ]]
+  [[    "${status}" -eq 0                               ]]
+  [[    "${output}" =~  1                               ]]
+  [[    "${output}" =~  Example\ Folder/1               ]]
+  [[    "${output}" =~  Example\ Folder/Sample\ Folder  ]]
+  [[ !  "${output}" =~  home                            ]]
 }
 
 @test "'show <folder>/<folder-id>/<id> --info-line' exits with status 0 and prints nested file info." {
@@ -146,12 +146,12 @@ load test_helper
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[    "${status}" -eq 0                                             ]]
-  [[    "${output}" =~  1                                             ]]
-  [[    "${output}" =~  Example\\\ Folder/Sample\\\ Folder/1          ]]
-  [[    "${output}" =~  Example\\\ Folder/Sample\\\ Folder/example.md ]]
-  [[    "${output}" =~  Example\ Title                                ]]
-  [[ !  "${output}" =~  home                                          ]]
+  [[    "${status}" -eq 0                                         ]]
+  [[    "${output}" =~  1                                         ]]
+  [[    "${output}" =~  Example\ Folder/Sample\ Folder/1          ]]
+  [[    "${output}" =~  Example\ Folder/Sample\ Folder/example.md ]]
+  [[    "${output}" =~  Example\ Title                            ]]
+  [[ !  "${output}" =~  home                                      ]]
 }
 
 @test "'show <folder>/<folder-id>/<id> --info-line' exits with status 0 and prints nested folder info." {
@@ -165,10 +165,31 @@ load test_helper
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
+  [[    "${status}" -eq 0                                           ]]
+  [[    "${output}" =~  1                                           ]]
+  [[    "${output}" =~  Example\ Folder/Sample\ Folder/1            ]]
+  [[    "${output}" =~  Example\ Folder/Sample\ Folder/Demo\ Folder ]]
+  [[ !  "${output}" =~  home                                        ]]
+}
+
+@test "'show <notebook>:<folder-id>/<filename> --info-line' exits with status 0 and prints nested folder info." {
+  {
+    "${_NB}" init
+    "${_NB}" notebooks add "Example Notebook"
+    "${_NB}" add  "Example Notebook:Sample Folder/Example File.md"  \
+      --title     "Example Title"                                   \
+      --content   "Example content."
+  }
+
+  run "${_NB}" show "Example Notebook:1/Example File.md" --info-line
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
   [[    "${status}" -eq 0                                                 ]]
   [[    "${output}" =~  1                                                 ]]
-  [[    "${output}" =~  Example\\\ Folder/Sample\\\ Folder/1              ]]
-  [[    "${output}" =~  Example\\\ Folder/Sample\\\ Folder/Demo\\\ Folder ]]
+  [[    "${output}" =~  Example\ Notebook:Sample\ Folder/1                ]]
+  [[    "${output}" =~  Example\ Notebook:Sample\ Folder/Example\ File.md ]]
   [[ !  "${output}" =~  home                                              ]]
 }
 
@@ -266,10 +287,10 @@ HEREDOC
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[ ${status} -eq 0                          ]]
-  [[ "${output}" =~ multi\\\ word:1           ]]
-  [[ "${output}" =~ multi\\\ word:example.md  ]]
-  [[ "${output}" =~ Example\ Title            ]]
+  [[ ${status} -eq 0                        ]]
+  [[ "${output}" =~ multi\ word:1           ]]
+  [[ "${output}" =~ multi\ word:example.md  ]]
+  [[ "${output}" =~ Example\ Title          ]]
 }
 
 @test "'show <id> --info-line' includes indicators." {

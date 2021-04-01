@@ -2,6 +2,56 @@
 
 load test_helper
 
+@test "'add <notebook>:<folder-name>/<folder-name>/<filename>' with existing file creates another with incremented filename."  {
+  {
+    "${_NB}" init
+
+    "${_NB}" add                                          \
+      "home:Example Folder/Sample Folder/Example File.md" \
+      --content "Example content."
+
+    [[    -f "${NB_DIR}/home/Example Folder/Sample Folder/Example File.md"    ]]
+    [[ !  -f "${NB_DIR}/home/Example Folder/Sample Folder/Example File-1.md"  ]]
+  }
+
+  run "${_NB}" add                                        \
+      "home:Example Folder/Sample Folder/Example File.md" \
+      --content "Example content."
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}" -eq 0 ]]
+
+  # Creates file:
+
+  [[    -f "${NB_DIR}/home/Example Folder/Sample Folder/Example File.md"    ]]
+  [[    -f "${NB_DIR}/home/Example Folder/Sample Folder/Example File-1.md"  ]]
+
+  # Commits to git:
+
+  cd "${NB_DIR}/home" || return 1
+  while [[ -n "$(git -C "${NB_DIR}/home" status --porcelain)"         ]]
+  do
+    sleep 1
+  done
+  git log | grep -q '\[nb\] Add'
+
+  # Adds to index:
+
+  [[ -e "${NB_DIR}/home/.index"                                       ]]
+  [[ "$(ls "${NB_DIR}/home")" == "$(cat "${NB_DIR}/home/.index")"     ]]
+
+  [[ -e "${NB_DIR}/home/Example Folder/.index"                        ]]
+  [[ "$(ls "${NB_DIR}/home/Example Folder")" == \
+       "$(cat "${NB_DIR}/home/Example Folder/.index")"                ]]
+
+  # Prints output:
+
+  [[ "${output}" =~ Added:                                            ]]
+  [[ "${output}" =~ Example\ Folder/Sample\ Folder/Example\ File-1.md ]]
+}
+
 # notebook:folder/example.md ##################################################
 
 @test "'add notebook:folder/example.md' creates new note without errors." {
@@ -69,8 +119,8 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                                ]]
-  [[ "${output}" =~ Example\\\ Folder/example-filename.md ]]
+  [[ "${output}" =~ Added:                              ]]
+  [[ "${output}" =~ Example\ Folder/example-filename.md ]]
 }
 
 # notebook:folder/ #####################################################################
@@ -150,8 +200,8 @@ load test_helper
 
   [[    "${output}" =~ Added:                                     ]]
   [[    "${output}" =~ 📂                                         ]]
-  [[    "${output}" =~ home:Example\\\ Folder/1                   ]]
-  [[    "${output}" =~ home:Example\\\ Folder/folder              ]]
+  [[    "${output}" =~ home:Example\ Folder/1                     ]]
+  [[    "${output}" =~ home:Example\ Folder/folder                ]]
   [[ !  "${output}" =~ \.                                         ]]
 }
 
@@ -223,8 +273,8 @@ load test_helper
   # Prints output:
 
   [[ "${output}" =~ Added:                                        ]]
-  [[ "${output}" =~ home:Example\\\ Folder/1                      ]]
-  [[ "${output}" =~ home:Example\\\ Folder/example-filename.md    ]]
+  [[ "${output}" =~ home:Example\ Folder/1                        ]]
+  [[ "${output}" =~ home:Example\ Folder/example-filename.md      ]]
 }
 
 @test "'add notebook:<folder>/' creates new note without errors." {
@@ -293,7 +343,7 @@ load test_helper
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                            ]]
-  [[ "${output}" =~ home:Example\\\ Folder/1          ]]
-  [[ "${output}" =~ home:Example\\\ Folder/[0-9]+.md  ]]
+  [[ "${output}" =~ Added:                          ]]
+  [[ "${output}" =~ home:Example\ Folder/1          ]]
+  [[ "${output}" =~ home:Example\ Folder/[0-9]+.md  ]]
 }

@@ -7,91 +7,109 @@ export NB_SERVER_PORT=6789
 # non-breaking space
 export _S=" "
 
-# header crumbs ###############################################################
+# --original ##################################################################
 
-@test "'browse <notebook-path>:<folder-id>/<folder-id>/<file-id>' displays header crumbs with folder." {
+@test "GET to --original URL serves file with no newlines." {
   {
     "${_NB}" init
 
-    "${_NB}" add  "Example Folder/Sample Folder/File One.md"  \
-      --title     "Example Title"                             \
-      --content   "Example content."
+    "${_NB}" add  "Example Folder/Example File.md"  \
+      --title     "Example Title"
+
+    printf "# Example Title" > "${NB_DIR}/home/Example Folder/Example File.md"
+
+    "${_NB}" git checkpoint
+
+    (ncat                               \
+      --exec "${_NB} browse --respond"  \
+      --listen                          \
+      --source-port "6789"              \
+      2>/dev/null) &
+
+    sleep 1
   }
 
-  run "${_NB}" browse home:1/1/1 --header
+  run curl -sS --verbose -D - \
+    "http://localhost:6789/--original/home/Example%20Folder/Example%20File.md"
 
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[ "${status}"    == 0                                                        ]]
+  [[ "${status}"  -eq 0                         ]]
 
-  [[ "${output}"    =~ \#\ \[nb\]\(http://localhost:6789/\)\ ·\                 ]]
-  [[ "${output}"    =~ \ ·\ \[home\]\(http://localhost:6789/home:\)\ :\         ]]
-  [[ "${output}"    =~ \ :\ \[Example\ Folder\]\(http://localhost:6789/1/\)\ /  ]]
-  [[ "${output}"    =~ \ /\ \[Sample\ Folder\]\(http://localhost:6789/1/1/\)\ / ]]
+  [[ "${output}"  =~  Content-Type:\ text/plain ]]
+
+  [[ "${output}"  =~  \#\ Example\ Title        ]]
 }
 
-@test "'browse <notebook-path>:<folder-id>/<file-id>' displays header crumbs with folder." {
+@test "GET to --original URL serves original markdown file." {
   {
     "${_NB}" init
 
-    "${_NB}" add  "Example Folder/File One.md"  \
-      --title     "Example Title"               \
-      --content   "Example content."
+    "${_NB}" add  "Example Folder/Example File.md"  \
+      --title       "Example Title"                 \
+      --content     "Example content."
+
+    (ncat                               \
+      --exec "${_NB} browse --respond"  \
+      --listen                          \
+      --source-port "6789"              \
+      2>/dev/null) &
+
+    sleep 1
   }
 
-  run "${_NB}" browse home:1/1 --header
+  run curl -sS -D - "http://localhost:6789/--original/home/Example%20Folder/Example%20File.md"
 
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[ "${status}"    == 0                                                        ]]
+  [[ "${status}"  -eq 0                         ]]
 
-  [[ "${output}"    =~ \#\ \[nb\]\(http://localhost:6789/\)\ ·\                 ]]
-  [[ "${output}"    =~ \ ·\ \[home\]\(http://localhost:6789/home:\)\ :\         ]]
-  [[ "${output}"    =~ \ :\ \[Example\ Folder\]\(http://localhost:6789/1/\)\ /  ]]
+  [[ "${output}"  =~  Content-Type:\ text/plain ]]
+
+  [[ "${output}"  =~  \#\ Example\ Title        ]]
+  [[ "${output}"  =~  Example\ content.         ]]
 }
 
-@test "'browse <notebook-path>/<folder>/file>' displays header crumbs with folder." {
+# title #######################################################################
+
+@test "'browse' sets HTML title." {
   {
     "${_NB}" init
 
-    "${_NB}" add  "Example Folder/File One.md"  \
-      --title     "Example Title"               \
-      --content   "Example content."
+    sleep 1
   }
 
-  run "${_NB}" browse "${NB_DIR}/home/Example Folder/Folder One.md" --header
+  run "${_NB}" browse --print
 
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[ "${status}"    == 0                                                        ]]
+  [[    "${status}"  -eq 0                    ]]
 
-  [[ "${output}"    =~ \#\ \[nb\]\(http://localhost:6789/\)\ ·\                 ]]
-  [[ "${output}"    =~ \ ·\ \[home\]\(http://localhost:6789/home:\)\ :\         ]]
-  [[ "${output}"    =~ \ :\ \[Example\ Folder\]\(http://localhost:6789/1/\)\ /  ]]
+  [[    "${output}"  =~  '<title>nb</title>'  ]]
+  [[ !  "${output}"  =~  'h1 class="title"'   ]]
+  [[ !  "${output}"  =~  'title-block-header' ]]
 }
 
-@test "'browse <notebook-path>/<folder>' displays header crumbs with folder." {
+# css / styles ################################################################
+
+@test "'browse' includes application styles." {
   {
     "${_NB}" init
 
-    "${_NB}" add  "Example Folder/File One.md"  \
-      --title     "Example Title"               \
-      --content   "Example content."
+    sleep 1
   }
 
-  run "${_NB}" browse "${NB_DIR}/home/Example Folder" --header
+  run "${_NB}" browse --print
 
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[ "${status}"    == 0                                                        ]]
+  [[ "${status}"  -eq 0         ]]
 
-  [[ "${output}"    =~ \#\ \[nb\]\(http://localhost:6789/\)\ ·\                 ]]
-  [[ "${output}"    =~ \ ·\ \[home\]\(http://localhost:6789/home:\)\ :\         ]]
-  [[ "${output}"    =~ \ :\ \[Example\ Folder\]\(http://localhost:6789/1/\)\ /  ]]
+  [[ "${output}"  =~  'html {'  ]]
 }
 
 # conflicting folder id / name ################################################
@@ -107,6 +125,8 @@ export _S=" "
 
     [[ -d "${NB_DIR}/home/Example Folder" ]]
     [[ -f "${NB_DIR}/home/1/File One.md"  ]]
+
+    sleep 1
   }
 
   run "${_NB}" browse 1/ --print
@@ -117,11 +137,13 @@ export _S=" "
   [[ "${status}"  ==  0 ]]
 
   [[ "${output}"  =~  \
-      \<h1\ id=\"nb-home-example-folder\"\>\<a\ href=\"http://localhost:6789/\"\>nb\</a\> ]]
+href=\"http://localhost:6789/\?--per-page=.*\"\>\<span\ class=\"dim\"\>❯\</span\>nb\</a\>             ]]
   [[ "${output}"  =~  \
-      ·\ \<a\ href=\"http://localhost:6789/home:\"\>home\</a\>\ :\                        ]]
+\<nav\ class=\"header-crumbs\"\>\<h1\>.*\<a.*\ href=\"http://localhost:6789/\?--per-page=.*\"\>       ]]
   [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/1/\"\>Example\ Folder\</a\>\ /\</h1\>             ]]
+.*·.*\ \<a.*\ href=\"http://localhost:6789/home:\?--per-page=.*\"\>home\</a\>\ .*:.*\                 ]]
+  [[ "${output}"  =~  \
+\<a.*\ href=\"http://localhost:6789/home:1/\?--per-page=.*\"\>Example\ Folder\</a\>\ .*/.*\</h1\>     ]]
 
   [[ "${output}"  =~  0\ items. ]]
 
@@ -133,34 +155,18 @@ export _S=" "
   [[ "${status}"  ==  0 ]]
 
   [[ "${output}"  =~  \
-      \<h1\ id=\"nb-home-1\"\>\<a\ href=\"http://localhost:6789/\"\>nb\</a\>  ]]
+\<nav\ class=\"header-crumbs\"\>\<h1\>\<a.*\ href=\"http://localhost:6789/\?--per-page=.*\"\>\<span\  ]]
   [[ "${output}"  =~  \
-      ·\ \<a\ href=\"http://localhost:6789/home:\"\>home\</a\>\ :\            ]]
+\<span\ class=\"dim\"\>❯\</span\>nb\</a\>                               ]]
   [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/2/\"\>1\</a\>\ /\</h1\>               ]]
+.*·.*\ \<a.*\ href=\"http://localhost:6789/home:\?--per-page=.*\"\>home\</a\>\ .*:.*\   ]]
+  [[ "${output}"  =~  \
+\<a.*\ href=\"http://localhost:6789/home:2/\?--per-page=.*\"\>1\</a\>\ .*/.*\</h1\>     ]]
 
   [[ "${output}"  =~  \
-      \<p\>\<a\ href=\"http://localhost:6789/2/1\"\>\[1/1\]${_S}File${_S}One.md\</a\>\<br/\>\</p\>  ]]
-}
-
-# error handling ##############################################################
-
-@test "'browse <not-valid>' returns 404 Not Found." {
-  {
-    "${_NB}" init
-
-    "${_NB}" add  "Example Folder/File One.md"  \
-      --title     "Example Title"               \
-      --content   "Example content."
-  }
-
-  run "${_NB}" browse not-valid --print
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}"    == 0                ]]
-  [[ "${output}"    =~ 404\ Not\ Found  ]]
+\<a.*\ href=\"http://localhost:6789/home:2/1\?--per-page=.*\"\ class=\"list-item\"\>.*\[.*1/1.*\].*   ]]
+  [[ "${output}"  =~  \
+class=\"list-item\"\>.*\[.*1/1.*\].*${_S}File${_S}One.md\</a\>\<br\>    ]]
 }
 
 # headers #######################################################################
@@ -172,6 +178,8 @@ export _S=" "
     "${_NB}" add  "Example File.md"             \
       --title     "Example Title"               \
       --content   "Example content."
+
+    sleep 1
   }
 
   run "${_NB}" browse 1 --print --headers
@@ -187,293 +195,4 @@ export _S=" "
   [[ "${lines[2]}"  =~  Expires:\ .*              ]]
   [[ "${lines[3]}"  =~  Server:\ nb               ]]
   [[ "${lines[4]}"  =~  Content-Type:\ text/html  ]]
-}
-
-# items #######################################################################
-
-@test "'browse <folder-id>/<id>' serves the rendered HTML page with wiki-style links resolved to internal web server URLs." {
-  {
-    "${_NB}" init
-
-    "${_NB}" add  "Example File.md"             \
-      --title     "Example Title"               \
-      --content   "Example content."
-
-    "${_NB}" add  "Example Folder/File One.md"  \
-      --title     "Title One"                   \
-      --content   "Example content. [[Example Title]]"
-  }
-
-  run "${_NB}" browse 2/1 --print
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}"    ==  0                                                           ]]
-  [[ "${output}"    =~  \<\!DOCTYPE\ html\>                                         ]]
-
-  [[ "${output}"    =~  \<h1\ id=\"title-one\"\>Title\ One\</h1\>                   ]]
-
-  [[ "${output}"    =~  \
-      \<p\>Example\ content.\ \<a\ href=\"http://localhost:6789/Example%20Title\"\> ]]
-  [[ "${output}"    =~  \[\[Example\ Title\]\]\</a\>\</p\>                          ]]
-}
-
-@test "'browse <folder-name>/<id>' serves the rendered HTML page with wiki-style links resolved to internal web server URLs." {
-  {
-    "${_NB}" init
-
-    "${_NB}" add  "Example File.md"             \
-      --title     "Example Title"               \
-      --content   "Example content."
-
-    "${_NB}" add  "Example Folder/File One.md"  \
-      --title     "Title One"                   \
-      --content   "Example content. [[Example Title]]"
-  }
-
-  run "${_NB}" browse Example\ Folder/1 --print
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}"    ==  0                                                           ]]
-  [[ "${output}"    =~  \<\!DOCTYPE\ html\>                                         ]]
-
-  [[ "${output}"    =~  \<h1\ id=\"title-one\"\>Title\ One\</h1\>                   ]]
-
-  [[ "${output}"    =~  \
-      \<p\>Example\ content.\ \<a\ href=\"http://localhost:6789/Example%20Title\"\> ]]
-  [[ "${output}"    =~  \[\[Example\ Title\]\]\</a\>\</p\>                          ]]
-}
-
-# empty #######################################################################
-
-@test "'browse <folder-selector>/' (slash) with empty folder prints message and header." {
-  {
-    "${_NB}" init
-
-    "${_NB}" add  "Example Folder" --type "folder"
-  }
-
-  run "${_NB}" browse Example\ Folder/ --print
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}"  ==  0 ]]
-
-  [[ "${output}"  =~  \
-      \<h1\ id=\"nb-home-example-folder\"\>\<a\ href=\"http://localhost:6789/\"\>nb\</a\>   ]]
-  [[ "${output}"  =~  \
-      ·\ \<a\ href=\"http://localhost:6789/home:\"\>home\</a\>\ :\                          ]]
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/1/\"\>Example\ Folder\</a\>\ /\</h1\>               ]]
-
-  [[ "${output}"  =~  0\ items. ]]
-}
-
-@test "'browse <notebook>:' with empty notebook prints message and header." {
-  {
-    "${_NB}" init
-
-    "${_NB}" notebooks add "Example Notebook"
-  }
-
-  run "${_NB}" browse Example\ Notebook: --print
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}"  ==  0 ]]
-
-  [[ "${output}"  =~  \
-      \<h1\ id=\"nb-example-notebook\"\>\<a\ href=\"http://localhost:6789/\"\>nb\</a\>            ]]
-  [[ "${output}"  =~  \
-      ·\ \<a\ href=\"http://localhost:6789/Example%20Notebook:\"\>Example\ Notebook\</a\>\</h1\>  ]]
-
-  [[ "${output}"  =~  0\ items. ]]
-}
-
-# notebooks and folder (containers) ###########################################
-
-@test "'browse --notebooks'  serves the list of unarchived notebooks as a rendered HTML page with links to internal web server URLs." {
-  {
-    "${_NB}" init
-
-    "${_NB}" notebooks add "One"
-    "${_NB}" notebooks add "Two"
-    "${_NB}" notebooks add "Three"
-  }
-
-  run "${_NB}" browse --notebooks --print
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}"  ==  0                   ]]
-  [[ "${output}"  =~  \<\!DOCTYPE\ html\> ]]
-
-  [[ "${output}"  =~  \
-      \<h1\ id=\"nb-notebooks\"\>\<a\ href=\"http://localhost:6789/\"\>nb\</a\>\ ·\ notebooks\</h1\>  ]]
-
-  [[ "${output}"  =~  \
-      \<p\>\<a\ href=\"http://localhost:6789/One:\"\>One\</a\>\<br/\> ]]
-
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/Two:\"\>Two\</a\>\<br/\>      ]]
-
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/Three:\"\>Three\</a\>\<br/\>  ]]
-
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/home:\"\>home\</a\>\<br/\>    ]]
-}
-
-@test "'browse' with no arguments serves the current notebook contents as a rendered HTML page with links to internal web server URLs." {
-  {
-    "${_NB}" init
-
-    "${_NB}" add  "File One.md"       \
-      --title     "Title One"         \
-      --content   "Example content."
-
-    "${_NB}" add  "File Two.md"       \
-      --title     "Title Two"         \
-      --content   "Example content."
-
-    "${_NB}" add  "Example Folder"    \
-      --type      "folder"
-  }
-
-  run "${_NB}" browse --print
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}"  == 0                                              ]]
-  [[ "${output}"  =~ \<\!DOCTYPE\ html\>                            ]]
-
-  [[ "${output}"  =~  \<h1\ id=\"nb-home\"\>\<a\ href=\"http://localhost:6789/\"\>nb\</a\>  ]]
-  [[ "${output}"  =~ ·\ \<a\ href=\"http://localhost:6789/home:\"\>home\</a\>\</h1\>        ]]
-
-  [[ "${output}"  =~  \
-      \<p\>\<a\ href=\"http://localhost:6789/home:3\"\>                     ]]
-  [[ "${output}"  =~  \[home:3\]${_S}📂${_S}Example${_S}Folder\</a\>\<br/\> ]]
-
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/home:2\"\>                          ]]
-  [[ "${output}"  =~  \[home:2\]${_S}Title${_S}Two\</a\>\<br/\>             ]]
-
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/home:1\"\>                          ]]
-  [[ "${output}"  =~  \[home:1\]${_S}Title${_S}One\</a\>\<br/\>             ]]
-}
-
-@test "'browse <folder-selector>/' (slash) serves the list as rendered HTML with links to internal web server URLs." {
-  {
-    "${_NB}" init
-
-    "${_NB}" add  "Example Folder/File One.md"  \
-      --title     "Title One"                   \
-      --content   "Example content."
-
-    "${_NB}" add  "Example Folder/File Two.md"  \
-      --title     "Title Two"                   \
-      --content   "Example content."
-  }
-
-  run "${_NB}" browse Example\ Folder/ --print
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}"  ==  0 ]]
-
-  [[ "${output}"  =~  \
-      \<h1\ id=\"nb-home-example-folder\"\>\<a\ href=\"http://localhost:6789/\"\>nb\</a\> ]]
-  [[ "${output}"  =~  \
-      ·\ \<a\ href=\"http://localhost:6789/home:\"\>home\</a\>\ :\                        ]]
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/1/\"\>Example\ Folder\</a\>\ /\</h1\>   ]]
-
-  [[ "${output}"  =~  \
-      \<p\>\<a\ href=\"http://localhost:6789/1/2\"\>                            ]]
-  [[ "${output}"  =~  \[Example${_S}Folder/2\]${_S}Title${_S}Two\</a\>\<br/\>   ]]
-
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/1/1\"\>                                 ]]
-  [[ "${output}"  =~  \[Example${_S}Folder/1\]${_S}Title${_S}One\</a\>\<br/\>   ]]
-}
-
-@test "'browse <folder-selector>' (no slash) serves the list as rendered HTML with links to internal web server URLs." {
-  {
-    "${_NB}" init
-
-    "${_NB}" add  "Example Folder/File One.md"  \
-      --title     "Title One"                   \
-      --content   "Example content."
-
-    "${_NB}" add  "Example Folder/File Two.md"  \
-      --title     "Title Two"                   \
-      --content   "Example content."
-  }
-
-  run "${_NB}" browse Example\ Folder --print
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}"  ==  0 ]]
-
-  [[ "${output}"  =~  \
-      \<h1\ id=\"nb-home-example-folder\"\>\<a\ href=\"http://localhost:6789/\"\>nb\</a\>   ]]
-  [[ "${output}"  =~  \
-      ·\ \<a\ href=\"http://localhost:6789/home:\"\>home\</a\>\ :\                          ]]
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/1/\"\>Example\ Folder\</a\>\ /\</h1\> ]]
-
-  [[ "${output}"  =~  \
-      \<p\>\<a\ href=\"http://localhost:6789/1/2\"\>                          ]]
-  [[ "${output}"  =~  \[Example${_S}Folder/2\]${_S}Title${_S}Two\</a\>\<br/\> ]]
-
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/1/1\"\>                               ]]
-  [[ "${output}"  =~  \[Example${_S}Folder/1\]${_S}Title${_S}One\</a\>\<br/\> ]]
-}
-
-@test "'browse <notebook>:' serves the notebook contents as rendered HTML with links to internal web server URLs." {
-  {
-    "${_NB}" init
-
-    "${_NB}" notebooks add "Example Notebook"
-
-    "${_NB}" add  "Example Notebook:File One.md"  \
-      --title     "Title One"                     \
-      --content   "Example content."
-
-    "${_NB}" add  "Example Notebook:File Two.md"  \
-      --title     "Title Two"                     \
-      --content   "Example content."
-  }
-
-  run "${_NB}" browse Example\ Notebook: --print
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}"  ==  0 ]]
-
-  [[ "${output}"  =~  \
-      \<h1\ id=\"nb-example-notebook\"\>\<a\ href=\"http://localhost:6789/\"\>nb\</a\>            ]]
-  [[ "${output}"  =~  \
-      ·\ \<a\ href=\"http://localhost:6789/Example%20Notebook:\"\>Example\ Notebook\</a\>\</h1\>  ]]
-
-  [[ "${output}"  =~  \
-      \<p\>\<a\ href=\"http://localhost:6789/Example%20Notebook:2\"\>   ]]
-  [[ "${output}"  =~  \[Example${_S}Notebook:2\]${_S}Title${_S}Two\</a\>\<br/\>  ]]
-
-  [[ "${output}"  =~  \
-      \<a\ href=\"http://localhost:6789/Example%20Notebook:1\"\>        ]]
-  [[ "${output}"  =~  \[Example${_S}Notebook:1\]${_S}Title${_S}One\</a\>\<br/\>  ]]
 }

@@ -3,6 +3,192 @@
 
 load test_helper
 
+# --browse ####################################################################
+
+@test "'add --browse <item-selector>' creates new file with populated content and selector filename field." {
+  {
+    "${_NB}" init
+
+    "${_NB}" add "Example Folder" --type "folder"
+
+    sleep 1
+  }
+
+  run "${_NB}" add --browse Example\ Folder/Example\ File.md --print  \
+    --title     "Example Title"                                       \
+    --content   "Example content."                                    \
+    --tags      tag1,tag2
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[    "${status}"  -eq 0                                    ]]
+
+  [[    "${output}"  =~  ❯.*nb.*\ .*·.*\ .*home.*\ .*:.*\ .*1 ]]
+
+  printf "%s\\n" "${output}" | grep -q \
+"<nav class=\"header-crumbs\"><h1><a rel=\"noopener noreferrer\" href=\"http://lo"
+
+  printf "%s\\n" "${output}" | grep -q \
+"calhost:6789/?--per-page=.*&--columns=.*\"><span class=\"dim\">❯</span>nb</a>"
+
+  printf "%s\\n" "${output}" | grep -q \
+" <span class=\"dim\">·</span> <a rel=\"noopener noreferrer\" href=\"http://lo"
+
+  printf "%s\\n" "${output}" | grep -q \
+"calhost:6789/home:?--per-page=.*&--columns=.*\">home</a>"
+
+  printf "%s\\n" "${output}" | grep -q "cols=\".*\">"
+
+  printf "%s\\n" "${output}" | grep -q \
+"action=\"/home:Example%20Folder/Example%20File.md?--add&--per-page=.*&--columns=.*\""
+
+  printf "%s\\n" "${output}" | grep -q \
+"value=\"add\">"
+
+  printf "%s\\n" "${output}" | grep -q \
+"cols=\".*\"># Example Title${_NEWLINE}${_NEWLINE}#tag1 #tag2${_NEWLINE}${_NEWLINE}Example content.${_NEWLINE}</textarea>"
+
+  printf "%s\\n" "${output}" | grep -q -v \
+"<input type=\"hidden\" name=\"--title\""
+}
+
+# --title option ##############################################################
+
+@test "'add --title' with .org file creates file with .org title." {
+  {
+    "${_NB}" init
+  }
+
+  run "${_NB}" add --title "Example Title" --filename "Example File.org"
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}" -eq 0      ]]
+
+  [[ -f "${NB_DIR}/home/Example File.org" ]]
+
+  diff                                        \
+    <(cat "${NB_DIR}/home/Example File.org")  \
+    <(printf "\
+#+TITLE: Example Title
+
+# mock_editor %s/home/Example File\\n" "${NB_DIR}")
+
+  cd "${NB_DIR}/home"
+
+  while [[ -n "$(git status --porcelain)" ]]
+  do
+    sleep 1
+  done
+  git log | grep -q '\[nb\] Add'
+}
+
+@test "'add' with --title option exits with 0, creates new note with \$EDITOR, creates commit." {
+  {
+    "${_NB}" init
+  }
+
+  run "${_NB}" add \
+    --title "Example Title: A*string•with/a\\bunch|of?invalid<filename\"characters>"
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}" -eq 0      ]]
+
+  _files=($(ls "${NB_DIR}/home/"))
+
+  printf "\${_files[*]}: '%s'\\n" "${_files[*]:-}"
+
+  [[ "${#_files[@]}" -eq 1  ]]
+
+  cd "${NB_DIR}/home" || return 1
+
+  [[ -n "$(
+    ls example_title__a_string•with_a_bunch_of_invalid_filename_characters_.md
+  )" ]]
+
+  cat "${NB_DIR}/home/${_files[0]}"
+
+  diff                                    \
+    <(cat "${NB_DIR}/home/${_files[0]}")  \
+    <(printf "\
+# Example Title: A*string•with/a\\\\bunch|of?invalid<filename\"characters>
+
+# mock_editor %s/home/%s\\n" "${NB_DIR}" "${_files[0]%.md}")
+
+  while [[ -n "$(git status --porcelain)" ]]
+  do
+    sleep 1
+  done
+  git log | grep -q '\[nb\] Add'
+}
+
+@test "'add' with empty --title option exits with 1" {
+  {
+    "${_NB}" init
+  }
+
+  run "${_NB}" add --title
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}" -eq 1      ]]
+
+  cd "${NB_DIR}/home" || return 1
+
+  ls "${NB_DIR}/home/"
+
+  _files=($(ls "${NB_DIR}/home/"))
+
+  [[ "${#_files[@]}" -eq 0  ]]
+}
+
+@test "'add --title <title> --content <content>' with colons successfully creates note without \$EDITOR." {
+  {
+    "${_NB}" init
+  }
+
+  run "${_NB}" add                                                                    \
+    --title "Example Title: A*string•with/a\\bunch|of?invalid<filename\"characters>"  \
+    --content "Example: content."
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}" -eq 0      ]]
+
+  _files=($(ls "${NB_DIR}/home/"))
+
+  printf "\${_files[*]}: '%s'\\n" "${_files[*]:-}"
+
+  [[ "${#_files[@]}" -eq 1  ]]
+
+  cd "${NB_DIR}/home" || return 1
+
+  [[ -n "$(
+    ls example_title__a_string•with_a_bunch_of_invalid_filename_characters_.md
+  )" ]]
+
+  cat "${NB_DIR}/home/${_files[0]}"
+
+  diff                                    \
+    <(cat "${NB_DIR}/home/${_files[0]}")  \
+    <(printf "\
+# Example Title: A*string•with/a\\\\bunch|of?invalid<filename\"characters>
+
+Example: content.\\n")
+
+  while [[ -n "$(git status --porcelain)" ]]
+  do
+    sleep 1
+  done
+  git log | grep -q '\[nb\] Add'
+}
+
 # content #####################################################################
 
 @test "'add' with piped content includes content from --title and multiple --tags, --content, and arguments separated by newlines." {
@@ -319,7 +505,7 @@ HEREDOC
   }
 
   echo "Piped content." | {
-    run "${_NB}" add  \
+    run "${_NB}" add              \
       "Argument content one."     \
       --tags    tag1,tag2         \
       --title   "Example Title"   \
@@ -331,7 +517,7 @@ HEREDOC
 
     # Returns status 0:
 
-    [[ "${status}" -eq 0      ]]
+    [[ "${status}" -eq 0          ]]
 
     # Creates new note file:
 
@@ -696,9 +882,9 @@ HEREDOC
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                          ]]
-  [[ "${output}" =~ example:[A-Za-z0-9]+            ]]
-  [[ "${output}" =~ example:Example\\\ Filename.md  ]]
+  [[ "${output}" =~ Added:                        ]]
+  [[ "${output}" =~ example:[A-Za-z0-9]+          ]]
+  [[ "${output}" =~ example:Example\ Filename.md  ]]
 }
 
 @test "'add notebook:<filename>' (no space) creates new note with <filename>." {
@@ -740,9 +926,9 @@ HEREDOC
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                          ]]
-  [[ "${output}" =~ example:[A-Za-z0-9]+            ]]
-  [[ "${output}" =~ example:Example\\\ Filename.md  ]]
+  [[ "${output}" =~ Added:                        ]]
+  [[ "${output}" =~ example:[A-Za-z0-9]+          ]]
+  [[ "${output}" =~ example:Example\ Filename.md  ]]
 }
 
 @test "'add notebook:<string>' (no space) creates new note with <string> as filename." {
@@ -784,9 +970,9 @@ HEREDOC
 
   # Prints output:
 
-  [[ "${output}" =~ Added:                    ]]
-  [[ "${output}" =~ example:[A-Za-z0-9]+      ]]
-  [[ "${output}" =~ example:Example\\\ String ]]
+  [[ "${output}" =~ Added:                  ]]
+  [[ "${output}" =~ example:[A-Za-z0-9]+    ]]
+  [[ "${output}" =~ example:Example\ String ]]
 }
 
 
@@ -1457,66 +1643,6 @@ HEREDOC
   [[ "${#_files[@]}" -eq 0  ]]
 }
 
-# --title option ##############################################################
-
-@test "'add' with --title option exits with 0, creates new note, creates commit." {
-  {
-    "${_NB}" init
-  }
-
-  run "${_NB}" add \
-    --title "Example Title: A*string•with/a\\bunch|of?invalid<filename\"characters>"
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}" -eq 0      ]]
-
-  _files=($(ls "${NB_DIR}/home/"))
-
-  printf "\${_files[*]}: '%s'\\n" "${_files[*]:-}"
-
-  [[ "${#_files[@]}" -eq 1  ]]
-
-  cd "${NB_DIR}/home" || return 1
-
-  [[ -n "$(
-    ls example_title__a_string•with_a_bunch_of_invalid_filename_characters_.md
-  )" ]]
-
-  cat "${NB_DIR}/home/${_files[0]}"
-
-  [[ "$(cat "${NB_DIR}/home/${_files[0]}")" =~ \
-        \#\ Example\ Title\:\ A\*string•with\/a\\bunch\|of\?invalid\<filename\"characters\> ]]
-
-  while [[ -n "$(git status --porcelain)" ]]
-  do
-    sleep 1
-  done
-  git log | grep -q '\[nb\] Add'
-}
-
-@test "'add' with empty --title option exits with 1" {
-  {
-    "${_NB}" init
-  }
-
-  run "${_NB}" add --title
-
-  printf "\${status}: '%s'\\n" "${status}"
-  printf "\${output}: '%s'\\n" "${output}"
-
-  [[ "${status}" -eq 1      ]]
-
-  cd "${NB_DIR}/home" || return 1
-
-  ls "${NB_DIR}/home/"
-
-  _files=($(ls "${NB_DIR}/home/"))
-
-  [[ "${#_files[@]}" -eq 0  ]]
-}
-
 # --type option ###############################################################
 
 @test "'add --type org' with content argument creates a new .org note file." {
@@ -1607,12 +1733,55 @@ HEREDOC
 
 # aliases ####################################################################
 
+@test "'+' creates new note." {
+  {
+    run "${_NB}" init
+  }
+
+  run "${_NB}" +                \
+    --title     "Example Title" \
+    --filename  "File One.md"   \
+    --content   "Content one."
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  # Returns status 0:
+
+  [[ "${status}" -eq 0      ]]
+
+  # Creates a new file:
+
+
+  [[ -f "${NB_DIR}/home/File One.md" ]]
+
+
+  diff \
+    <(cat "${NB_DIR}/home/File One.md") \
+    <(cat <<HEREDOC
+# Example Title
+
+Content one.
+HEREDOC
+)
+
+  # Creates git commit:
+
+  cd "${NB_DIR}/home" || return 1
+  printf "\$(git log): '%s'\n" "$(git log)"
+  while [[ -n "$(git status --porcelain)" ]]
+  do
+    sleep 1
+  done
+  git log | grep -q '\[nb\] Add'
+}
+
 @test "'a' with no arguments creates new note file created with \$EDITOR." {
   {
     run "${_NB}" init
   }
 
-  run "${_NB}" add
+  run "${_NB}" a
 
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
