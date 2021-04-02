@@ -11894,6 +11894,7 @@ Please install %s manually. No .deb package available for %s."  \
       printf "curl:       %s\\n" "$(command -v curl)"
       printf "emacs:      %s\\n" "$(command -v emacs)"
       printf "git:        %s\\n" "$(command -v git)"
+      printf "glow:       %s\\n" "$(command -v glow)"
       printf "gvim:       %s\\n" "$(command -v gvim)"
       printf "gpg:        %s\\n" "$(command -v gpg)"
       printf "highlight:  %s\\n" "$(command -v highlight)"
