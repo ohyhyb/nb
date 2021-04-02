@@ -98,7 +98,7 @@ _CURRENT_WORKING_DIR="${PWD}"
 # $_REPO
 #
 # The <user>/<repo> identifier for this project's git repository.
-_REPO="xwmx/nb"
+_REPO="ohyhyb/nb"
 
 # $_REPO_MAIN_BRANCH
 #
@@ -3152,7 +3152,7 @@ HEREDOC
               -e '/^<<<<<<</d'  \
               -e '/^>>>>>>>/d'  \
               -e '/=======/d'   \
-              "${NB_DIR}/${_notebook_path}/${__maybe_index_relative_path}"
+              "${_notebook_path}/${__maybe_index_relative_path}"
 
             git -C "${NB_DIR}" add "${__maybe_index_relative_path}"
           fi
@@ -3491,7 +3491,8 @@ $(_color_primary "Usage:")
   ${_ME} help [<subcommand>] [-p | --print]
   ${_ME} help [-c | --colors] | [-r | --readme] | [-s | --short] [-p | --print]
   ${_ME} history [<notebook>:][<folder-path>/][<id> | <filename> | <title>]
-  ${_ME} import [copy | download | move] (<path>... | <url>) [--convert] [-e | --encrypt]
+  ${_ME} import [copy | download | move] (<path>... | <url>) [--convert]
+            [-e | --encrypt]
   ${_ME} import notebook <path> [<name>]
   ${_ME} init [<remote-url>]
   ${_ME} list [-e [<length>] | --excerpt [<length>]] [--filenames]
@@ -18954,9 +18955,10 @@ _sync() {
 
   if ! ((_sync_started))
   then
-    printf "Syncing: "
+    printf "Syncing..."
     _sync_started=1
     GIT_TERMINAL_PROMPT=0 NB_AUTO_SYNC=1
+    _git checkpoint "[nb] Sync" --spinner
     _git sync "${NB_DIR}"
   fi && _notebook_sync_successful=1
 
