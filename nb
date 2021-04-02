@@ -592,6 +592,10 @@ export _NB_INDICATOR_EBOOK="${NB_INDICATOR_EBOOK:+"${NB_INDICATOR_EBOOK} "}"
 export  NB_INDICATOR_ENCRYPTED="${NB_INDICATOR_ENCRYPTED-🔒}"
 export _NB_INDICATOR_ENCRYPTED="${NB_INDICATOR_ENCRYPTED:+"${NB_INDICATOR_ENCRYPTED} "}"
 
+# $NB_INDICATOR_ENCRYPTED_KEY
+export  NB_INDICATOR_ENCRYPTED_KEY="${NB_INDICATOR_ENCRYPTED_KEY-🔐}"
+export _NB_INDICATOR_ENCRYPTED_KEY="${NB_INDICATOR_ENCRYPTED_KEY:+"${NB_INDICATOR_ENCRYPTED_KEY} "}"
+
 # $NB_INDICATOR_FOLDER
 export  NB_INDICATOR_FOLDER="${NB_INDICATOR_FOLDER-📂}"
 export _NB_INDICATOR_FOLDER="${NB_INDICATOR_FOLDER:+"${NB_INDICATOR_FOLDER} "}"
@@ -4841,7 +4845,7 @@ _list() {
                   --exclude=elf         \
                   --exclude=tar)" =~ PGP ]]
           then
-            _indicators+="🔐 "
+            _indicators+="${_NB_INDICATOR_ENCRYPTED_KEY:-}"
           else
             _indicators+="${_NB_INDICATOR_ENCRYPTED:-}"
           fi
@@ -14372,7 +14376,7 @@ _show() {
               --exclude=elf         \
               --exclude=tar)" =~ PGP ]]
       then
-        _indicators+="🔐 "
+        _indicators+="${_NB_INDICATOR_ENCRYPTED_KEY:-}"
       else
         _indicators+="${_NB_INDICATOR_ENCRYPTED:-}"
       fi
