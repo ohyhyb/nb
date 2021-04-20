@@ -7,6 +7,122 @@ export NB_SERVER_PORT=6789
 # non-breaking space
 export _S=" "
 
+# local #######################################################################
+
+@test "POST to --add <folder-name>/<filename> URL with local notebook creates folder and note and redirects."  {
+  {
+    "${_NB}" init
+
+    mkdir -p "${_TMP_DIR}/Local Notebook"
+    cd "${_TMP_DIR}/Local Notebook"
+
+    "${_NB}" notebooks init
+
+    (ncat                                   \
+      --exec "${_NB} browse --respond"      \
+      --listen                              \
+      --source-port "6789"                  \
+      2>/dev/null) &
+
+    sleep 1
+  }
+
+  run curl -sS -D - --data                               \
+    "content=Example%20content.&--title=Example%20Title" \
+    "http://localhost:6789/local:Example%20Folder/Example%20File.md?--add&--local=${_TMP_DIR//$'/'/%2F}%2FLocal%20Notebook"
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  # Returns status 0:
+
+  [[    "${status}"  -eq 0                  ]]
+
+  # Creates file:
+
+  ls -la "${_TMP_DIR}/Local Notebook/"
+
+  [[ -f "${_TMP_DIR}/Local Notebook/Example Folder/Example File.md"     ]]
+
+  diff                                                                  \
+    <(cat "${_TMP_DIR}/Local Notebook/Example Folder/Example File.md")  \
+    <(cat <<HEREDOC
+# Example Title
+
+Example content.
+HEREDOC
+)
+
+  # Creates git commit:
+
+  cd "${_TMP_DIR}/Local Notebook" || return 1
+
+  printf "git log --stat:\\n%s\\n" "$(git log --stat)"
+
+  while [[ -n "$(git status --porcelain)"   ]]
+  do
+    sleep 1
+  done
+  git log | grep -q '\[nb\] Add'
+
+  # Prints output:
+
+  [[ "${#lines[@]}" -eq 5                                                         ]]
+
+  declare _expected_param_pattern="--per-page=30\&--local=${_TMP_DIR//$'/'/%2F}%2FLocal%20Notebook"
+
+  [[ "${lines[0]}"  =~  HTTP/1.0\ 302\ Found                                      ]]
+  [[ "${lines[1]}"  =~  Date:\ .*                                                 ]]
+  [[ "${lines[2]}"  =~  Expires:\ .*                                              ]]
+  [[ "${lines[3]}"  =~  Server:\ nb                                               ]]
+  [[ "${lines[4]}"  =~  \
+Location:\ http:\/\/localhost:6789\/Example\ Folder/1\?${_expected_param_pattern} ]]
+}
+
+@test "GET to --add URL with local notebook renders form." {
+  {
+    "${_NB}" init
+
+    mkdir -p "${_TMP_DIR}/Local Notebook"
+    cd "${_TMP_DIR}/Local Notebook"
+
+    "${_NB}" notebooks init
+
+    (ncat                                   \
+      --exec "${_NB} browse --respond"      \
+      --listen                              \
+      --source-port "6789"                  \
+      2>/dev/null) &
+
+    sleep 1
+  }
+
+  run curl -sS -D - "http://localhost:6789/local:?--add&--example&-x&abcdefg&--sample=demo-value&--local=${_TMP_DIR//$'/'/%2F}%2FLocal%20Notebook"
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[    "${status}"  -eq 0    ]]
+
+  # Prints output:
+
+  [[    "${lines[0]}"  =~ HTTP/1.0\ 200\ OK                               ]]
+  [[    "${lines[1]}"  =~ Date:\ .*                                       ]]
+  [[    "${lines[2]}"  =~ Expires:\ .*                                    ]]
+  [[    "${lines[3]}"  =~ Server:\ nb                                     ]]
+  [[    "${lines[4]}"  =~ Content-Type:\ text/html                        ]]
+
+  [[    "${output}"    =~ \
+action=\"/local:\?--add\&--per-page=.*\&--columns=.*\&--local=${_TMP_DIR//$'/'/%2F}%2FLocal%20Notebook ]]
+
+  [[    "${output}"    =~ \<input\ type=\"hidden\"\ name=\"--example\"\>  ]]
+  [[    "${output}"    =~ \<input\ type=\"hidden\"\ name=\"-x\"\>         ]]
+  [[    "${output}"    =~ \
+\<input\ type=\"hidden\"\ name=\"--sample\"\ value=\"demo-value\"\>       ]]
+
+  [[ !  "${output}"    =~ \<input\ type=\"hidden\"\ name=\"abcdefg\"\>    ]]
+}
+
 # POST ########################################################################
 
 @test "POST to --add <folder-name>/<folder-name>/<filename> URL with existing file creates another with incremented filename."  {
@@ -28,8 +144,8 @@ export _S=" "
     sleep 1
   }
 
-  run curl -sS -D - --data                               \
-    "content=Example%20content.&--title=Example%20Title" \
+  run curl -sS -D - --data                                                          \
+    "content=Example%20content.%0A%0AExample%20line%20two.&--title=Example%20Title" \
     "http://localhost:6789/home:Example%20Folder/Sample%20Folder/Example%20File.md?--add"
 
   printf "\${status}: '%s'\\n" "${status}"
@@ -45,12 +161,16 @@ export _S=" "
 
   [[ -f "${NB_DIR}/home/Example Folder/Sample Folder/Example File-1.md"     ]]
 
+  cat "${NB_DIR}/home/Example Folder/Sample Folder/Example File-1.md"
+
   diff                                                                      \
     <(cat "${NB_DIR}/home/Example Folder/Sample Folder/Example File-1.md")  \
     <(cat <<HEREDOC
 # Example Title
 
 Example content.
+
+Example line two.
 HEREDOC
 )
 

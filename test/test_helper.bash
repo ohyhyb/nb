@@ -129,6 +129,36 @@ _compare() {
   printf "actual:\\n%s\\n" "${_actual}"
 }
 
+# _contains()
+#
+# Usage:
+#   _contains <query> <list-item>...
+#
+# Exit / Error Status:
+#   0 (success, true)  If the item is included in the list.
+#   1 (error,  false)  If not.
+#
+# Example:
+#   _contains "${_query}" "${_list[@]}"
+_contains() {
+  local _query="${1:-}"
+  shift
+
+  if [[ -z "${_query}"  ]] ||
+     [[ -z "${*:-}"     ]]
+  then
+    return 1
+  fi
+
+  local __element=
+  for   __element in "${@}"
+  do
+    [[ "${__element}" == "${_query}" ]] && return 0
+  done
+
+  return 1
+}
+
 # _get_hash()
 #
 # Usage:
@@ -236,7 +266,8 @@ _setup_remote_repo() {
   then
     mkdir "${_GIT_REMOTE_PATH}.setup"     &&
       cd "${_GIT_REMOTE_PATH}.setup"      &&
-      git init -b "${_branch_name}"       &&
+      git init                            &&
+      git checkout -b "${_branch_name}"   &&
       touch '.index'                      &&
       git add --all                       &&
       git commit -a -m "Initial commit."  &&
