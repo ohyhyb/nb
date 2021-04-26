@@ -6180,6 +6180,250 @@ _notebooks() {
     fi && printf "Added notebook: %s\\n" "$(_color_primary "${_name}")"
   }
 
+  # _notebooks_author()
+  #
+  # Usage:
+  #   _notebooks_author [--name [<name>]] [--email [<email>]] [--unset]
+  #                     [<notebook-path>]
+  #
+  # Description:
+  #   Print, set, and delete the <email> and <name> for git commit attribution
+  #   within the notebook.
+  _notebooks_author() {
+    local _email=0
+    local _name=0
+    local _new_local_email=
+    local _new_local_name=
+    local _selector=
+    local _print_current=0
+    local _skip_prompt=0
+    local _unset=0
+
+    while ((${#}))
+    do
+      case "${1:-}" in
+        --email)
+          _email=1
+
+          if _option_value_is_present "${2:-}"
+          then
+            _new_local_email="${2:-}"
+            shift
+          fi
+          ;;
+        --name)
+          _name=1
+
+          if _option_value_is_present "${2:-}"
+          then
+            _new_local_name="${2:-}"
+            shift
+          fi
+          ;;
+        --print|--current)
+          _print_current=1
+          ;;
+        --skip*)
+          _skip_prompt=1
+          ;;
+        --unset)
+          _unset=1
+          ;;
+        *)
+          if [[ -z "${_selector:-}" ]]
+          then
+            _selector="${1:-}"
+          fi
+          ;;
+      esac
+
+      shift
+    done
+
+    local _notebook_path=
+
+    if   [[ "${_selector:-}" =~ ^/      ]]
+    then
+      _notebook_path="${_selector:-}"
+    elif [[ "${_selector:-}" == "local" ]]
+    then
+      _notebook_path="$(_notebooks_current --local --path || :)"
+    elif [[ -n "${_selector:-}"         ]]
+    then
+      _notebook_path="${NB_DIR}/${_selector%%:*}"
+    fi
+
+    if [[ -z "${_notebook_path:-}"            ]]
+    then
+      _notebook_path="$(_notebooks_current --path)"
+    fi
+
+    if [[ "${_notebook_path:-}" =~ ^${NB_DIR} ]]
+    then
+      local _notebook_name="${_notebook_path##*/}"
+    else
+      local _notebook_name="local"
+    fi
+
+    local _global_email=
+    _global_email="$(
+      git -C "${_notebook_path:-}" config --global user.email || :
+    )"
+
+    local _global_name=
+    _global_name="$(
+      git -C "${_notebook_path:-}" config --global user.name  || :
+    )"
+
+    local _local_email=
+    _local_email="$(
+      git -C "${_notebook_path:-}" config --local user.email  || :
+    )"
+
+    local _local_name=
+    _local_name="$(
+      git -C "${_notebook_path:-}" config --local user.name   || :
+    )"
+
+    if ((_unset))
+    then
+      local _unset_output_present=0
+
+      if [[ -n "${_local_email:-}"  ]] && {
+           ((_email)) || ! ((_name))
+         }
+      then
+        _warn printf "Unsetting local email.\\n"
+        git -C "${_notebook_path:-}" config --unset user.email  || :
+        _unset_output_present=1
+      fi
+
+      if [[ -n "${_local_name:-}"   ]] && {
+           ((_name))  || ! ((_email))
+         }
+      then
+        _warn printf "Unsetting local name.\\n"
+        git -C "${_notebook_path:-}" config --unset user.name   || :
+        _unset_output_present=1
+      fi
+
+      ((_unset_output_present)) && printf "\\n"
+
+      printf "Updated author for: %s\\n" "$(
+        _color_primary "${_notebook_name}"
+      )"
+
+      _print_line "-------------------"
+
+      _notebooks_author "${_notebook_path}" --current
+
+      return 0
+    elif ((_print_current))
+    then
+      printf "%s" "$(_color_primary "email: ")"
+      printf " %s %s\\n" "${_global_email:-}"
+
+
+      printf "%s" "$(_color_primary "name: ")"
+      printf "  %s %s\\n" "${_global_name:-}"
+
+      return 0
+    else
+      printf "Current author:\\n"
+
+      _print_line "-------------------"
+
+      _notebooks_author "${_notebook_path}" --current
+
+      if [[ -n "${_new_local_email:-}"    ]] || [[ -n "${_new_local_name:-}" ]]
+      then
+        printf    "\\nUpdate:\\n"
+        _print_line  "-------"
+
+        if [[ -n "${_new_local_email:-}"  ]]
+        then
+          printf "local %s: %s\\n" "$(_color_primary "email")" "${_new_local_email:-}"
+        fi
+
+        if [[ -n "${_new_local_name:-}"   ]]
+        then
+          printf "local %s:  %s\\n" "$(_color_primary "name")" "${_new_local_name:-}"
+        fi
+      fi
+
+      if ! ((_skip_prompt))
+      then
+        while true
+        do
+          local __yn=
+          IFS='' read -r -e -d $'\n' -p   \
+"${_NEWLINE}$(_color_primary "Update?")  $(_color_brackets "y/N") " __yn
+
+          case ${__yn} in
+            [Yy]*)
+              break
+              ;;
+            *)
+              printf "Exiting...\\n"
+              exit 0
+              ;;
+          esac
+        done
+
+        if [[ -z "${_new_local_email:-"${_new_local_name:-}"}" ]]
+        then
+          local _unset=
+          _unset=$(_color_primary "unset")
+
+          cat <<HEREDOC
+Enter a new value, ${_unset} to use the global value,
+or leave blank to keep the current value.
+HEREDOC
+
+          IFS='' read -r -e -d $'\n' -p             \
+"local $(_color_primary "email:") " _new_local_email
+
+
+          IFS='' read -r -e -d $'\n' -p             \
+"local $(_color_primary "name:")  " _new_local_name
+        fi
+      fi
+
+      if [[ -n "${_new_local_email:-}"    ]]
+      then
+        if _contains "${_new_local_email:-}" "global" "--unset" "unset"
+        then
+          git -C "${_notebook_path:-}" config --unset user.email  || :
+        else
+          git -C "${_notebook_path}" config --local \
+            user.email "${_new_local_email:-}"
+        fi
+      fi
+
+      if [[ -n "${_new_local_name:-}"     ]]
+      then
+        if _contains "${_new_local_name:-}" "global" "--unset" "unset"
+        then
+          git -C "${_notebook_path:-}" config --unset user.name  || :
+        else
+          git -C "${_notebook_path}" config --local \
+            user.name "${_new_local_name:-}"
+        fi
+      fi
+
+      if [[ -n "${_new_local_email:-"${_new_local_name:-}"}" ]] || ! ((_skip_prompt))
+      then
+        printf "\\nUpdated author for: %s\\n" "$(
+          _color_primary "${_notebook_name}"
+        )"
+
+        _print_line "-------------------"
+
+        _notebooks_author "${_notebook_path}" --current
+      fi
+    fi
+  }
+
   # _notebooks_current()
   #
   # Usage:
