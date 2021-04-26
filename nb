@@ -3550,7 +3550,7 @@ $(_color_primary "Usage"):
   ${_ME} help [-c | --colors] | [-r | --readme] | [-s | --short] [-p | --print]
   ${_ME} history [<notebook>:][<folder-path>/][<id> | <filename> | <title>]
   ${_ME} import [copy | download | move] (<path>... | <url>) [--convert]
-            [<notebook>:][<folder>/][<filename>] [-e | --encrypt]
+            [-e | --encrypt] [<notebook>:][<folder>/][<filename>]
   ${_ME} import notebook <path> [<name>]
   ${_ME} init [<remote-url> [<branch>]] [--author] [--email <email>]
           [--name <name>]
@@ -3570,16 +3570,13 @@ $(_color_primary "Usage"):
           [-f | --force]
   ${_ME} notebooks [<name>] [--archived] [--global] [--local] [--names]
                [--paths] [--unarchived]
-  ${_ME} notebooks add <name> [<remote-url> [<branch>]] [--author]
-                   [--email <email>] [--name <name>]
+  ${_ME} notebooks add <name> [--email <email>] [--name <name>]
   ${_ME} notebooks (archive | open | peek | status | unarchive) [<name>]
   ${_ME} notebooks author [<name> | <path>] [--email <email>] [--name <name>]
   ${_ME} notebooks current [--path | --selected | --filename [<filename>]]
                        [--global | --local]
   ${_ME} notebooks delete <name> [-f | --force]
   ${_ME} notebooks (export <name> [<path>] | import <path>)
-  ${_ME} notebooks init [<path> [<remote-url> [<branch>]]] [--author]
-                    [--email <email>] [--name <name>]
   ${_ME} notebooks rename <old-name> <new-name>
   ${_ME} notebooks select <selector>
   ${_ME} notebooks show (<name> | <path> | <selector>) [--archived]
@@ -6018,16 +6015,13 @@ _describe_notebooks() {
 $(_color_primary "Usage"):
   ${_ME} notebooks [<name>] [--archived] [--global] [--local] [--names]
                [--paths] [--unarchived]
-  ${_ME} notebooks add <name> [<remote-url> [<branch>]] [--author]
-                   [--email <email>] [--name <name>]
+  ${_ME} notebooks add <name> [--author] [--email <email>] [--name <name>]
   ${_ME} notebooks (archive | open | peek | status | unarchive) [<name>]
   ${_ME} notebooks author [<name> | <path>] [--email <email>] [--name <name>]
   ${_ME} notebooks current [--path | --selected | --filename [<filename>]]
                        [--global | --local]
   ${_ME} notebooks delete <name> [-f | --force]
   ${_ME} notebooks (export <name> [<path>] | import <path>)
-  ${_ME} notebooks init [<path> [<remote-url> [<branch>]]] [--author]
-                    [--email <email>] [--name <name>]
   ${_ME} notebooks rename <old-name> <new-name>
   ${_ME} notebooks select <selector>
   ${_ME} notebooks show (<name> | <path> | <selector>) [--archived]
@@ -6058,9 +6052,7 @@ $(_color_primary "Options"):
 
 $(_color_primary "Subcommands"):
   (default)  List notebooks.
-  add        Create a new global notebook. When an existing notebook's
-             <remote-url> is specified, create the new global notebook as a
-             clone of <remote-url>.
+  add        Create a new notebook.
              Aliases: \`notebooks create\`, \`notebooks new\`
   archive    Set the current notebook or notebook <name> to "archived" status.
   author     Configure the commit author email and name for the notebook.
@@ -12424,7 +12416,7 @@ _describe_import() {
   cat <<HEREDOC
 $(_color_primary "Usage"):
   ${_ME} import [copy | download | move] (<path>... | <url>) [--convert]
-            [<notebook>:][<folder>/][<filename>]
+            [-e | --encrypt] [<notebook>:][<folder>/][<filename>]
   ${_ME} import notebook <path> [<name>]
 
 $(_color_primary "Options"):
@@ -18279,13 +18271,16 @@ $(_color_primary "Usage"):
   ${_ME} remote branches [<url>]
   ${_ME} remote remove
   ${_ME} remote set <url> [<branch>]
+
 $(_color_primary "Subcommands"):
   (default)     Print the remote URL and branch for the notebook.
   branches      List branches on the current or given remote.
   remove        Remove the remote URL from the notebook.
   set           Set the remote URL and branch for the notebook.
+
 $(_color_primary "Description"):
   Get, set, and remove a notebook's remote repository URL and branch.
+
 $(_color_primary "Examples"):
   ${_ME} remote set https://github.com/example/example.git
   ${_ME} remote remove
@@ -18517,8 +18512,10 @@ _remote() {
       then
         cat <<HEREDOC
 Branch not present on remote: $(_color_primary "${_new_branch:-}")
+
 $(_color_brackets "1") Merge and sync with an existing remote branch.
 $(_color_brackets "2") Sync as a new orphan branch on the remote.
+
 HEREDOC
       else
         local _local_branch_root_hash=
@@ -18537,8 +18534,10 @@ HEREDOC
         then
           cat <<HEREDOC
 Remote branch has existing history: $(_color_primary "${_new_branch:-}")
+
 $(_color_brackets "1") Merge and sync with existing remote branch.
 $(_color_brackets "2") Sync as a new orphan branch on the remote.
+
 HEREDOC
         fi
       fi
