@@ -10453,7 +10453,7 @@ _add() {
       "${_target_basename}"                                   \
       "${_notebook_path:?}/${_target_folder_relative_path:-}" &&
       _git checkpoint                                         \
-        "[nb] Add: ${_target_unique_relative_path} to '${_notebook_name}'"
+        "[nb] Add: '${_notebook_name}:${_target_basename}'"
 
     local _info
     _info="$(
@@ -11626,6 +11626,11 @@ _delete() {
         _notebooks current --path
     )"
 
+    local _notebook_name=
+    _notebook_name="$(
+      _notebooks show "${_notebook_path}" --name --no-color
+    )"
+
     local _basename="${_relative_path##*\/}"
     local _folder_path="${_notebook_path}"
 
@@ -11655,7 +11660,7 @@ _delete() {
       then
         _index delete "${_basename}" "${_folder_path}"
 
-        _git checkpoint "[nb] Delete: ${_relative_path} from '$(_notebooks current)'"
+        _git checkpoint "[nb] Delete: '${_notebook_name}:${_relative_path}'"
 
         printf "Deleted:  %s\\n" "${_info_line}"
       fi
@@ -11906,7 +11911,7 @@ _edit() {
       rm "${_decrypted_path:?}"
     fi
 
-    _git checkpoint "[nb] Edit: ${_relative_path} in '$(_notebooks current)'"
+    _git checkpoint "[nb] Edit: '$(_notebooks current):${_relative_path}'"
 
     if [[ "${_before}" != "${_after}"   ]]
     then
@@ -12674,6 +12679,11 @@ _import() {
           fi
         fi
 
+        local _notebook_name=
+        _notebook_name="$(
+          _notebooks show "${_notebook_path}" --name --no-color
+        )"
+
         _target_basename="${_target_relative_path##*\/}"
 
         if ((_encrypt))
@@ -12684,7 +12694,7 @@ _import() {
           _index add                  \
             "${_target_basename}.enc" \
             "${_notebook_path}/${_target_folder_relative_path:-}" &&
-            _git checkpoint "[nb] Import: ${_target_relative_path} to '$(_notebooks show "${_notebook_path}" --name --no-color)'"
+            _git checkpoint "[nb] Import: '${_target_relative_path}' to '${_notebook_name}:${_target_basename}.enc'"
 
             printf "Imported %s from %s\\n"               \
               "$(_show "${_encrypted_path}" --info-line)" \
@@ -12699,7 +12709,7 @@ _import() {
             _index add              \
               "${_target_basename}" \
               "${_notebook_path}/${_target_folder_relative_path}" &&
-                _git checkpoint "[nb] Import: ${_target_relative_path} to '$(_notebooks show "${_notebook_path}" --name --no-color)'"
+                _git checkpoint "[nb] Import: '${_target_relative_path}' to '${_notebook_name}:${_target_basename}'"
 
             printf "Imported %s from %s\\n"                     \
               "$(_show "${_notebook_path}/${_target_relative_path}" --info-line)" \
@@ -12758,6 +12768,11 @@ _import() {
         fi
       fi
 
+      local _notebook_name=
+      _notebook_name="$(
+        _notebooks show "${_notebook_path}" --name --no-color
+      )"
+
       _target_basename="${_target_relative_path##*\/}"
 
       if ((_convert))
@@ -12786,7 +12801,7 @@ _import() {
         _index add                  \
           "${_target_basename}.enc" \
           "${_notebook_path}/${_target_folder_relative_path:-}" &&
-        _git checkpoint "[nb] Import: ${_target_relative_path}.enc Source: ${_url} to '$(_notebooks show "${_notebook_path}" --name --no-color)'"
+        _git checkpoint "[nb] Import: '${_url}' to '${_notebook_name}:${_target_basename}.enc'"
 
         printf "Imported %s from %s\\n"                     \
                 "$(_show "${_encrypted_path}" --info-line)" \
@@ -12795,10 +12810,10 @@ _import() {
         _index add              \
           "${_target_basename}" \
           "${_notebook_path}/${_target_folder_relative_path:-}" &&
-        _git checkpoint "[nb] Import: ${_target_relative_path} Source: ${_url} to '$(_notebooks show "${_notebook_path}" --name --no-color)'"
+        _git checkpoint "[nb] Import: '${_url}' to '${_notebook_name}:${_target_basename}'"
 
         printf "Imported %s from %s\\n"                           \
-                "$(_show "${_target_relative_path}" --info-line)" \
+                "$(_show "${_notebook_path}/${_target_relative_path}" --info-line)" \
                 "$(_color_primary "${_url}")"
       fi
       ;;
@@ -12828,10 +12843,10 @@ _import() {
           _index add              \
             "${_target_basename}" \
             "${_notebook_path}/${_target_folder_relative_path:-}"   &&
-              _git checkpoint "[nb] Import: ${_target_relative_path} to '$(_notebooks show "${_notebook_path}" --name --no-color)'"
+              _git checkpoint "[nb] Import: '${_target_relative_path}' to '${_notebook_name}:${_target_basename}'"
 
         printf "Imported %s from %s\\n"                     \
-          "$(_show "${_target_relative_path}" --info-line)" \
+          "$(_show "${_notebook_path}/${_target_relative_path}" --info-line)" \
           "$(_color_primary "${__path}")"
       done
       ;;
@@ -13121,13 +13136,13 @@ _move() {
         _index add  "${_target_basename}" "${_target_folder_path}"
     fi || _exit_1 printf "Move index update failed.\\n"
 
-    _git checkpoint "[nb] Move: ${_source_relative_path} to ${_target_relative_path}"
+    _git checkpoint "[nb] Move: '$(_notebooks current --name):${_source_relative_path}' to '$(_notebooks current --name):${_target_basename}'"
   else
     _index delete "${_source_basename}" "${_source_folder_path}"
 
     _index add "${_target_basename}" "${_target_folder_path}"
 
-    _git checkpoint "[nb] Move: ${_source_relative_path} from '$(_notebooks current --name)' to '${_target_selector}'"
+    _git checkpoint "[nb] Move: '$(_notebooks current --name):${_source_relative_path}' to '${_target_selector}${_target_basename}'"
   fi
 
   printf "Moved to: %s\\n" "$(
@@ -13275,6 +13290,11 @@ _pin() {
       _notebooks current --path
   )"
 
+  local _notebook_name=
+  _notebook_name="$(
+    _notebooks show "${_notebook_path}" --name --no-color
+  )"
+
   local _relative_path=
   _relative_path="$(_show "${_selector}" --relative-path)"
 
@@ -13305,7 +13325,7 @@ _pin() {
         rm -f "${_pindex_path:?}"
       fi
 
-      _git checkpoint "[nb] Unpinned: ${_relative_path}"
+      _git checkpoint "[nb] Unpinned: '${_notebook_name}:${_relative_path}'"
 
       printf "Unpinned: %s\\n" "$(_show "${_selector}" --info-line)"
       ;;
@@ -13324,7 +13344,7 @@ _pin() {
         printf "%s\\n" "${_basename}" >> "${_pindex_path}"
         _sed_i -e '/^[[:space:]]*$/d'    "${_pindex_path}" # remove blank lines
 
-        _git checkpoint "[nb] Pinned: ${_relative_path}"
+        _git checkpoint "[nb] Pinned: '${_notebook_name}:${_relative_path}'"
 
         printf "Pinned: %s\\n" "$(_show "${_selector}" --info-line)"
       fi
@@ -15746,6 +15766,11 @@ _browse() {
         _notebooks current --path
     )"
 
+    local _notebook_name=
+    _notebook_name="$(
+      _notebooks show "${_notebook_path}" --name --no-color
+    )"
+
     if [[ "${_message_body:-}" =~ ^content= ]]
     then
       local _content=
@@ -15754,8 +15779,7 @@ _browse() {
 
       printf "%s\\n" "${_content:-}" > "${_source_path}"
 
-      _git checkpoint "${_notebook_path}" \
-        "[nb] Edit: ${_source_path#${_notebook_path}/}"
+      _git checkpoint "[nb] Edit: '${_notebook_name}:${_source_path#${_notebook_path}/}'"
     fi
   }
 
