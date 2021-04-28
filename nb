@@ -19877,7 +19877,10 @@ HEREDOC
 
   if ((_sync_successful))
   then
-    git -C "${NB_DIR}" pull origin master &>/dev/null
+    local _git_branch=
+    _git_branch="$(git -C "${NB_DIR}" rev-parse --abbrev-ref HEAD)"
+
+    git -C "${NB_DIR}" pull origin "${_git_branch}" &>/dev/null
     printf $(_color_primary "Done!\\n")
   else
     printf "\\n"
