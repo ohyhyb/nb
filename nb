@@ -3588,6 +3588,7 @@ $(_color_primary "Usage"):
   ${_ME} plugins [<name>] [--paths]
   ${_ME} plugins install [<path> | <url>] [--force]
   ${_ME} plugins uninstall <name> [--force]
+  ${_ME} purge [--force]
   ${_ME} remote [branches [<url>] | remove | set <url> [<branch>]]
   ${_ME} run <command> [<arguments>...]
   ${_ME} search ([<notebook>:][<folder-path>/][<id> | <filename> | <title>])
@@ -3644,6 +3645,7 @@ $(_color_primary "Subcommands"):
   peek         View a note, bookmarked web page, or notebook in the terminal.
   pin          Pin an item so it appears first in lists.
   plugins      Install and uninstall plugins and themes.
+  purge        Delete notebook directory and all data.
   remote       Get, set, and remove the remote URL for the notebook.
   run          Run shell commands within the current notebook.
   search       Search notes.
@@ -7679,6 +7681,7 @@ _SUBCOMMANDS=(
   plugin
   plugins
   preview
+  purge
   q
   r
   remote
@@ -7743,6 +7746,7 @@ _DOCUMENTED_SUBCOMMANDS=(
   pin
   plugins
   preview
+  purge
   q
   remote
   rename
@@ -8085,8 +8089,8 @@ _call_deferred_command() {
   local _group="${2:-}"
   local _group_3_names=(
     "_b" "_br" "_browse" "_browser" "_config" "_h" "_help" "_helpers" "_set"  \
-    "_plugin" "_plugins" "_remote" "_settings" "_shell" "_status" "_sync"     \
-    "_todo" "_todos" "_update" "_upgrade"
+    "_plugin" "_plugins" "_purge" "_remote" "_settings" "_shell" "_status"    \
+    "_sync" "_todo" "_todos" "_update" "_upgrade"
   )
 
   if {
@@ -18505,6 +18509,74 @@ HEREDOC
   esac
 }
 _alias_subcommand "plugins" "plugin"
+
+# purge ################################################################# purge
+
+_describe_purge() {
+  cat <<HEREDOC
+$(_color_primary "Usage"):
+  ${_ME} purge
+
+$(_color_primary "Options"):
+  --force   Skip the confirmation prompt.
+
+$(_color_primary "Description"):
+  Delete notebook directory and all data.
+
+HEREDOC
+}
+_purge() {
+  local _force=0
+  local __arg=
+  for   __arg in "${@:-}"
+  do
+    case "${__arg}" in
+      --force)
+        _force=1
+      ;;
+    esac
+  done
+
+  if ! ((_force))
+  then
+    while true
+    do
+      local __yn=
+      IFS='' read -r -e -d $'\n' -p \
+"$(_color_primary "Delete notebook directory?") $(_color_brackets "y/N") " __yn
+
+      case ${__yn} in
+        [Yy]*)
+          break
+          ;;
+        *)
+          printf "Exiting...\\n"
+          exit 0
+          ;;
+      esac
+    done
+
+    _warn printf "This action will delete all data in: $(_color_primary "${NB_DIR}")\\n"
+
+    while true
+    do
+      local __response=
+      IFS='' read -r -e -d $'\n' -p \
+  "Please type $(_color_primary "delete") to confirm: " __response
+
+      if [[ "${__response}" == "delete" ]]
+      then
+        break
+      else
+        printf "Exiting...\\n"
+        exit 0
+      fi
+    done
+  fi
+
+  printf "Deleting...\\n"
+  rm -rf "${NB_DIR}"
+}
 
 # remote ############################################################### remote
 
