@@ -2912,6 +2912,19 @@ _git() {
     [[ "${_diff}" -gt 60 ]]
   }
 
+  # _git_behind()
+  #
+  # Usage:
+  #   _git_behind
+  #
+  # Exit / Error Status:
+  #   0 (success, true)  If behind origin and pull required.
+  #   1 (error,  false)  If up to date and no pull required.
+  _git_behind() {
+    ((_GIT_ENABLED)) || return 1
+    git -C "${NB_DIR}" status | grep -q 'behind'
+  }
+
   # _git_checkpoint()
   #
   # Usage:
@@ -3306,6 +3319,9 @@ HEREDOC
   case "${1:-}" in
     *autosync*)
       _git_autosyncable
+      ;;
+    behind)
+      _git_behind
       ;;
     checkpoint)
       shift
@@ -19949,10 +19965,15 @@ HEREDOC
 
   if ((_sync_successful))
   then
-    local _git_branch=
-    _git_branch="$(git -C "${NB_DIR}" rev-parse --abbrev-ref HEAD)"
 
-    git -C "${NB_DIR}" pull origin "${_git_branch}" &>/dev/null
+    if _git behind
+    then
+      local _git_branch=
+      _git_branch="$(git -C "${NB_DIR}" rev-parse --abbrev-ref HEAD)"
+
+      git -C "${NB_DIR}" pull origin "${_git_branch}" &>/dev/null
+    fi
+
     printf $(_color_primary "Done!\\n")
   else
     printf "\\n"
