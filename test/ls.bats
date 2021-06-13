@@ -25,6 +25,588 @@ line four
 HEREDOC
 }
 
+# pinning #####################################################################
+
+@test "'ls' reconciles .pindex when file is deleted and deletes .pindex when empty." {
+  {
+    "${_NB}" init
+    "${_NB}" add "Example Folder/File One.md"    --title "Title One"
+    "${_NB}" add "Example Folder/File Two.md"    --title "Title Two"
+    "${_NB}" add "Example Folder/File Three.md"  --title "Title Three"
+    "${_NB}" add "Example Folder/File Four.md"   --title "Title Four"
+
+    "${_NB}" pin Example\ Folder/3
+
+    diff                                          \
+      <(printf "File Three.md\\n")                \
+      <(cat "${NB_DIR}/home/Example Folder/.pindex")
+
+    rm "${NB_DIR}/home/Example Folder/File Three.md"
+
+    [[ ! -e "${NB_DIR}/home/Example Folder/File Three.md" ]]
+
+    diff                                          \
+      <(printf "File Three.md\\n")                \
+      <(cat "${NB_DIR}/home/Example Folder/.pindex")
+  }
+
+  NB_PINNED_PATTERN="#pinned" run "${_NB}" ls Example\ Folder/
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}"    -eq 0                                             ]]
+
+  [[ "${lines[0]}"  =~  .*home.*                                      ]]
+  [[ "${lines[1]}"  =~  --------                                      ]]
+  [[ "${lines[2]}"  =~  \.*[.*Example\ Folder/4.*].*\ Title\ Four     ]]
+  [[ "${lines[3]}"  =~  \.*[.*Example\ Folder/2.*].*\ Title\ Two      ]]
+  [[ "${lines[4]}"  =~  \.*[.*Example\ Folder/1.*].*\ Title\ One      ]]
+
+  [[ ! -e "${NB_DIR}/home/Example Folder/.pindex"                     ]]
+}
+
+@test "'ls' reconciles .pindex when folder is deleted." {
+  {
+    "${_NB}" init
+    "${_NB}" add "Example Folder/File One.md"   --title "Title One"
+    "${_NB}" add "Example Folder/File Two.md"   --title "Title Two"
+    "${_NB}" add "Example Folder/Folder Three"  --type  folder
+    "${_NB}" add "Example Folder/File Four.md"  --title "Title Four"
+
+    "${_NB}" pin Example\ Folder/1
+    "${_NB}" pin Example\ Folder/3
+
+    diff                                          \
+      <(printf "File One.md\\nFolder Three\\n")   \
+      <(cat "${NB_DIR}/home/Example Folder/.pindex")
+
+    rm -r "${NB_DIR}/home/Example Folder/Folder Three"
+
+    [[ ! -e "${NB_DIR}/home/Example Folder/Folder Three" ]]
+
+    diff                                          \
+      <(printf "File One.md\\nFolder Three\\n")   \
+      <(cat "${NB_DIR}/home/Example Folder/.pindex")
+  }
+
+  NB_PINNED_PATTERN="#pinned" run "${_NB}" ls Example\ Folder/
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}"    -eq 0                                             ]]
+
+  [[ "${lines[0]}"  =~  .*home.*                                      ]]
+  [[ "${lines[1]}"  =~  --------                                      ]]
+  [[ "${lines[2]}"  =~  \.*[.*Example\ Folder/1.*].*\ 📌\ Title\ One  ]]
+  [[ "${lines[3]}"  =~  \.*[.*Example\ Folder/4.*].*\ Title\ Four     ]]
+  [[ "${lines[4]}"  =~  \.*[.*Example\ Folder/2.*].*\ Title\ Two      ]]
+
+  diff                                            \
+    <(printf "File One.md\\n")                    \
+    <(cat "${NB_DIR}/home/Example Folder/.pindex")
+}
+
+@test "'ls' reconciles .pindex when file is deleted." {
+  {
+    "${_NB}" init
+    "${_NB}" add "Example Folder/File One.md"    --title "Title One"
+    "${_NB}" add "Example Folder/File Two.md"    --title "Title Two"
+    "${_NB}" add "Example Folder/File Three.md"  --title "Title Three"
+    "${_NB}" add "Example Folder/File Four.md"   --title "Title Four"
+
+    "${_NB}" pin Example\ Folder/1
+    "${_NB}" pin Example\ Folder/3
+
+    diff                                          \
+      <(printf "File One.md\\nFile Three.md\\n")  \
+      <(cat "${NB_DIR}/home/Example Folder/.pindex")
+
+    rm "${NB_DIR}/home/Example Folder/File Three.md"
+
+    [[ ! -e "${NB_DIR}/home/Example Folder/File Three.md" ]]
+
+    diff                                          \
+      <(printf "File One.md\\nFile Three.md\\n")  \
+      <(cat "${NB_DIR}/home/Example Folder/.pindex")
+  }
+
+  NB_PINNED_PATTERN="#pinned" run "${_NB}" ls Example\ Folder/
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}"    -eq 0                                             ]]
+
+  [[ "${lines[0]}"  =~  .*home.*                                      ]]
+  [[ "${lines[1]}"  =~  --------                                      ]]
+  [[ "${lines[2]}"  =~  \.*[.*Example\ Folder/1.*].*\ 📌\ Title\ One  ]]
+  [[ "${lines[3]}"  =~  \.*[.*Example\ Folder/4.*].*\ Title\ Four     ]]
+  [[ "${lines[4]}"  =~  \.*[.*Example\ Folder/2.*].*\ Title\ Two      ]]
+
+  diff                                            \
+    <(printf "File One.md\\n")  \
+    <(cat "${NB_DIR}/home/Example Folder/.pindex")
+}
+
+@test "'ls' prints list with items pinned." {
+  {
+    "${_NB}" init
+    "${_NB}" add "File One.md"    --title "Title One"   --content "#pinned"
+    "${_NB}" add "File Two.md"    --title "Title Two"
+    "${_NB}" add "File Three.md"  --title "Title Three"
+    "${_NB}" add "File Four.md"   --title "Title Four"
+
+    "${_NB}" pin 1
+    "${_NB}" pin 4
+
+    diff                                          \
+      <(printf "File One.md\\nFile Four.md\\n")   \
+      <(cat "${NB_DIR}/home/.pindex")
+  }
+
+  NB_PINNED_PATTERN="#pinned" run "${_NB}" ls
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}"    -eq 0                             ]]
+
+  [[ "${lines[0]}"  =~  .*home.*                      ]]
+  [[ "${lines[1]}"  =~  --------                      ]]
+  [[ "${lines[2]}"  =~  \.*[.*1.*].*\ 📌\ Title\ One  ]]
+  [[ "${lines[3]}"  =~  \.*[.*4.*].*\ 📌\ Title\ Four ]]
+  [[ "${lines[4]}"  =~  \.*[.*3.*].*\ Title\ Three    ]]
+  [[ "${lines[5]}"  =~  \.*[.*2.*].*\ Title\ Two      ]]
+}
+
+# edge cases ##################################################################
+
+@test "'ls <query>' with partial notebook name match prints 'not found' message." {
+  {
+    "${_NB}" init
+
+    "${_NB}" notebooks add "Example Notebook"
+    "${_NB}" notebooks add "Sample Notebook"
+    "${_NB}" notebooks add "Demo Notebook"
+  }
+
+  run "${_NB}" ls notebook
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+
+  [[    "${status}"    -eq 1                              ]]
+  [[    "${#lines[@]}" -eq 1                              ]]
+
+  [[    "${output}"    =~  \!.*\ Not\ found:\ .*notebook  ]]
+}
+
+# --archived / --unarchived ###################################################
+
+@test "'ls' delegates --ar, --archived, --unar, and --unarchived options to 'notebooks'." {
+  {
+    "${_NB}" init
+
+    "${_NB}" notebooks add "Example Notebook"
+    "${_NB}" notebooks add "Sample Notebook"
+    "${_NB}" notebooks add "Demo Notebook"
+    "${_NB}" notebooks add "Test Notebook"
+
+    "${_NB}" archive "Sample Notebook"
+    "${_NB}" archive "Test Notebook"
+  }
+
+  run "${_NB}" ls --ar
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+
+  [[    "${status}"    -eq 0                              ]]
+  [[    "${#lines[@]}" -eq 2                              ]]
+
+  [[ !  "${output}"    =~  home                           ]]
+  [[ !  "${output}"    =~  Example\ Notebook              ]]
+  [[    "${output}"    =~  Sample\ Notebook\ \(archived\) ]]
+  [[ !  "${output}"    =~  Demo\ Notebook                 ]]
+  [[    "${output}"    =~  Test\ Notebook\ \(archived\)   ]]
+
+  run "${_NB}" ls --archived
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+
+  [[    "${status}"    -eq 0                              ]]
+  [[    "${#lines[@]}" -eq 2                              ]]
+
+  [[ !  "${output}"    =~  home                           ]]
+  [[ !  "${output}"    =~  Example\ Notebook              ]]
+  [[    "${output}"    =~  Sample\ Notebook\ \(archived\) ]]
+  [[ !  "${output}"    =~  Demo\ Notebook                 ]]
+  [[    "${output}"    =~  Test\ Notebook\ \(archived\)   ]]
+
+  run "${_NB}" ls --unar
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+
+  [[    "${status}"    -eq 0                              ]]
+  [[    "${#lines[@]}" -eq 3                              ]]
+
+  [[    "${output}"    =~  home                           ]]
+  [[    "${output}"    =~  Example\ Notebook              ]]
+  [[ !  "${output}"    =~  Sample\ Notebook               ]]
+  [[    "${output}"    =~  Demo\ Notebook                 ]]
+  [[ !  "${output}"    =~  Test\ Notebook                 ]]
+
+  run "${_NB}" ls --unarchived
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+
+  [[    "${status}"    -eq 0                              ]]
+  [[    "${#lines[@]}" -eq 3                              ]]
+
+  [[    "${output}"    =~  home                           ]]
+  [[    "${output}"    =~  Example\ Notebook              ]]
+  [[ !  "${output}"    =~  Sample\ Notebook               ]]
+  [[    "${output}"    =~  Demo\ Notebook                 ]]
+  [[ !  "${output}"    =~  Test\ Notebook                 ]]
+}
+
+# `ls --type` #################################################################
+
+@test "'ls --document' exits with 0 and displays a list of documents." {
+  {
+    "${_NB}" init
+    cat <<HEREDOC | "${_NB}" add "first.md"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "second.doc"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "third.md"
+line one
+line two
+line three
+line four
+HEREDOC
+  }
+
+  run "${_NB}" ls --document
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
+
+  [[ "${status}"    -eq 0           ]]
+
+  [[ "${#lines[@]}" ==  1           ]]
+  [[ "${lines[0]}"  =~  second.doc  ]]
+  [[ "${lines[0]}"  =~  2           ]]
+}
+
+@test "'ls --documents' exits with 0 and displays a list of documents." {
+  {
+    "${_NB}" init
+    cat <<HEREDOC | "${_NB}" add "first.md"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "second.doc"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "third.md"
+line one
+line two
+line three
+line four
+HEREDOC
+  }
+
+  run "${_NB}" ls --documents
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
+
+  [[ "${status}"    -eq 0           ]]
+
+  [[ "${#lines[@]}" ==  1           ]]
+  [[ "${lines[0]}"  =~  second.doc  ]]
+  [[ "${lines[0]}"  =~  2           ]]
+}
+
+@test "'ls --document' exits with 0 and displays empty list." {
+  {
+    "${_NB}" init
+    cat <<HEREDOC | "${_NB}" add "first.md"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "second.md"
+line one
+line two
+line three
+line four
+HEREDOC
+  }
+
+  run "${_NB}" ls --document
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
+
+  [[ "${status}"    -eq 0                     ]]
+
+  [[ "${#lines[@]}" ==  10                    ]]
+  [[ "${lines[2]}"  =~  0\ document\ files\.  ]]
+}
+
+@test "'ls --documents' exits with 0 and displays empty list." {
+  {
+    "${_NB}" init
+    cat <<HEREDOC | "${_NB}" add "first.md"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "second.md"
+line one
+line two
+line three
+line four
+HEREDOC
+  }
+
+  run "${_NB}" ls --documents
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
+
+  [[ "${status}"    -eq 0                     ]]
+
+  [[ "${#lines[@]}" ==  10                    ]]
+  [[ "${lines[2]}"  =~  0\ document\ files\.  ]]
+}
+
+@test "'ls --js' exits with 0, displays empty list, and retains trailing 's'." {
+  {
+    "${_NB}" init
+    cat <<HEREDOC | "${_NB}" add "first.md"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "second.md"
+line one
+line two
+line three
+line four
+HEREDOC
+  }
+
+  run "${_NB}" ls --js
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
+
+  [[ "${status}"    -eq 0               ]]
+
+  [[ "${#lines[@]}" ==  10              ]]
+  [[ "${lines[2]}"  =~  0\ js\ files\.  ]]
+}
+
+@test "'ls <selection> --type' filters by type." {
+  {
+    "${_NB}" init
+    cat <<HEREDOC | "${_NB}" add "example.md"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "sample.doc"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "example.doc"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "sample.md"
+line one
+line two
+line three
+line four
+HEREDOC
+  }
+
+  run "${_NB}" ls example --document
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
+
+  [[ "${status}"    -eq 0           ]]
+
+  [[ "${#lines[@]}" ==  1           ]]
+  [[ "${lines[0]}"  =~  example.doc ]]
+  [[ "${lines[0]}"  =~  3           ]]
+}
+
+@test "'ls <selection> --<invalid>' prints message." {
+  {
+    "${_NB}" init
+    cat <<HEREDOC | "${_NB}" add "example.md"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "sample.doc"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "example.doc"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "sample.md"
+line one
+line two
+line three
+line four
+HEREDOC
+  }
+
+  run "${_NB}" ls example --not-valid
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
+
+  [[ "${status}"    -eq 1           ]]
+
+  [[ "${#lines[@]}" ==  1           ]]
+  [[ "${lines[0]}"  =~  Not\ found  ]]
+  [[ "${lines[0]}"  =~  example     ]]
+  [[ "${lines[0]}"  =~  Type        ]]
+  [[ "${lines[0]}"  =~  not-valid   ]]
+}
+
+@test "'ls <selection> --documents' with no matches prints message." {
+  {
+    "${_NB}" init
+    cat <<HEREDOC | "${_NB}" add "example.md"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "sample.doc"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "example.doc"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" add "sample.md"
+line one
+line two
+line three
+line four
+HEREDOC
+  }
+
+  run "${_NB}" ls matchless-query --document
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
+
+  [[ "${status}"    -eq 1               ]]
+
+  [[ "${#lines[@]}" ==  1               ]]
+  [[ "${lines[0]}"  =~  Not\ found      ]]
+  [[ "${lines[0]}"  =~  matchless-query ]]
+  [[ "${lines[0]}"  =~  Type            ]]
+  [[ "${lines[0]}"  =~  document        ]]
+}
+
+@test "'<notebook>: <selection> --documents' with no matches prints message." {
+  {
+    "${_NB}" init
+    "${_NB}" notebooks add example
+    cat <<HEREDOC | "${_NB}" example:add "example.md"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" example:add "sample.doc"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" example:add "example.doc"
+line one
+line two
+line three
+line four
+HEREDOC
+    cat <<HEREDOC | "${_NB}" example:add "sample.md"
+line one
+line two
+line three
+line four
+HEREDOC
+  }
+
+  run "${_NB}" example: matchless-query --document
+
+  printf "\${status}:     '%s'\\n" "${status}"
+  printf "\${output}:     '%s'\\n" "${output}"
+  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
+
+  [[ "${status}"    -eq 1                                                                 ]]
+  [[ "${#lines[@]}" ==  1                                                                 ]]
+  [[ "${lines[0]}"  =~  Not\ found:\ .*example:.*\ .*matchless-query.*\ Type:\ .*document ]]
+}
+
 # subcommand delegation #######################################################
 
 @test "'ls <selector> --added' exits with status 0 and prints the added timestamp using _show()." {
@@ -493,6 +1075,51 @@ HEREDOC
 
   [[    "${status}"   -eq 0 ]]
   [[ !  "${lines[6]}" =~  ❯ ]]
+}
+
+@test "'ls' footer uses expected spacing and escaping." {
+  {
+    _setup_ls
+
+    "${_NB}" notebooks add "Example Notebook"
+    "${_NB}" add  "Example Notebook:Example Folder/Example File.md" \
+      --content   "Example content."
+  }
+
+  run "${_NB}" ls --no-color
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}"    -eq 0                     ]]
+
+  [[ "${lines[6]}"  =~  ❯                     ]]
+  [[ "${lines[6]}"  =~  nb\ add               ]]
+  [[ "${lines[6]}"  =~  nb\ \<url\>           ]]
+  [[ "${lines[6]}"  =~  nb\ edit\ \<id\>      ]]
+
+  [[ "${output}"    =~  nb\ list\ \·          ]] ||
+    [[ "${output}"  =~  nb\ list${_NEWLINE}   ]]
+
+  [[ "${output}"    =~  nb\ search\ \<query\> ]]
+
+  run "${_NB}" ls Example\ Notebook:Example\ Folder/ --no-color
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}"    -eq 0                                             ]]
+
+  [[ "${lines[4]}"  =~  ❯                                             ]]
+  [[ "${lines[4]}"  =~  nb\ add\ Example\\\ Notebook:1/               ]]
+
+  [[ "${output}"    =~  nb\ Example\\\ Notebook:1/\ \<url\>           ]]
+  [[ "${output}"    =~  nb\ edit\ Example\\\ Notebook:1/\<id\>        ]]
+
+  [[ "${output}"    =~  nb\ list\ Example\\\ Notebook:1/\ \·          ]] ||
+    [[ "${output}"  =~  nb\ list\ Example\\\ Notebook:1/${_NEWLINE}   ]]
+
+  [[ "${output}"    =~  nb\ search\ Example\\\ Notebook:1/\ \<query\> ]]
 }
 
 @test "'ls' footer includes command names." {
@@ -1469,336 +2096,4 @@ HEREDOC
   [[ "${#lines[@]}" -eq 2             ]]
   [[ "${lines[0]}"  =~  one\ example  ]]
   [[ "${lines[0]}"  =~  [*1*]         ]]
-}
-
-# `ls --type` #################################################################
-
-@test "'ls --document' exits with 0 and displays a list of documents." {
-  {
-    "${_NB}" init
-    cat <<HEREDOC | "${_NB}" add "first.md"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "second.doc"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "third.md"
-line one
-line two
-line three
-line four
-HEREDOC
-  }
-
-  run "${_NB}" ls --document
-
-  printf "\${status}:     '%s'\\n" "${status}"
-  printf "\${output}:     '%s'\\n" "${output}"
-  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
-
-  [[ "${status}"    -eq 0           ]]
-
-  [[ "${#lines[@]}" ==  1           ]]
-  [[ "${lines[0]}"  =~  second.doc  ]]
-  [[ "${lines[0]}"  =~  2           ]]
-}
-
-@test "'ls --documents' exits with 0 and displays a list of documents." {
-  {
-    "${_NB}" init
-    cat <<HEREDOC | "${_NB}" add "first.md"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "second.doc"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "third.md"
-line one
-line two
-line three
-line four
-HEREDOC
-  }
-
-  run "${_NB}" ls --documents
-
-  printf "\${status}:     '%s'\\n" "${status}"
-  printf "\${output}:     '%s'\\n" "${output}"
-  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
-
-  [[ "${status}"    -eq 0           ]]
-
-  [[ "${#lines[@]}" ==  1           ]]
-  [[ "${lines[0]}"  =~  second.doc  ]]
-  [[ "${lines[0]}"  =~  2           ]]
-}
-
-@test "'ls --document' exits with 0 and displays empty list." {
-  {
-    "${_NB}" init
-    cat <<HEREDOC | "${_NB}" add "first.md"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "second.md"
-line one
-line two
-line three
-line four
-HEREDOC
-  }
-
-  run "${_NB}" ls --document
-
-  printf "\${status}:     '%s'\\n" "${status}"
-  printf "\${output}:     '%s'\\n" "${output}"
-  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
-
-  [[ "${status}"    -eq 0                     ]]
-
-  [[ "${#lines[@]}" ==  10                    ]]
-  [[ "${lines[2]}"  =~  0\ document\ files\.  ]]
-}
-
-@test "'ls --documents' exits with 0 and displays empty list." {
-  {
-    "${_NB}" init
-    cat <<HEREDOC | "${_NB}" add "first.md"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "second.md"
-line one
-line two
-line three
-line four
-HEREDOC
-  }
-
-  run "${_NB}" ls --documents
-
-  printf "\${status}:     '%s'\\n" "${status}"
-  printf "\${output}:     '%s'\\n" "${output}"
-  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
-
-  [[ "${status}"    -eq 0                     ]]
-
-  [[ "${#lines[@]}" ==  10                    ]]
-  [[ "${lines[2]}"  =~  0\ document\ files\.  ]]
-}
-
-@test "'ls --js' exits with 0, displays empty list, and retains trailing 's'." {
-  {
-    "${_NB}" init
-    cat <<HEREDOC | "${_NB}" add "first.md"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "second.md"
-line one
-line two
-line three
-line four
-HEREDOC
-  }
-
-  run "${_NB}" ls --js
-
-  printf "\${status}:     '%s'\\n" "${status}"
-  printf "\${output}:     '%s'\\n" "${output}"
-  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
-
-  [[ "${status}"    -eq 0               ]]
-
-  [[ "${#lines[@]}" ==  10              ]]
-  [[ "${lines[2]}"  =~  0\ js\ files\.  ]]
-}
-
-@test "'ls <selection> --type' filters by type." {
-  {
-    "${_NB}" init
-    cat <<HEREDOC | "${_NB}" add "example.md"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "sample.doc"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "example.doc"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "sample.md"
-line one
-line two
-line three
-line four
-HEREDOC
-  }
-
-  run "${_NB}" ls example --document
-
-  printf "\${status}:     '%s'\\n" "${status}"
-  printf "\${output}:     '%s'\\n" "${output}"
-  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
-
-  [[ "${status}"    -eq 0           ]]
-
-  [[ "${#lines[@]}" ==  1           ]]
-  [[ "${lines[0]}"  =~  example.doc ]]
-  [[ "${lines[0]}"  =~  3           ]]
-}
-
-@test "'ls <selection> --<invalid>' prints message." {
-  {
-    "${_NB}" init
-    cat <<HEREDOC | "${_NB}" add "example.md"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "sample.doc"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "example.doc"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "sample.md"
-line one
-line two
-line three
-line four
-HEREDOC
-  }
-
-  run "${_NB}" ls example --not-valid
-
-  printf "\${status}:     '%s'\\n" "${status}"
-  printf "\${output}:     '%s'\\n" "${output}"
-  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
-
-  [[ "${status}"    -eq 1           ]]
-
-  [[ "${#lines[@]}" ==  1           ]]
-  [[ "${lines[0]}"  =~  Not\ found  ]]
-  [[ "${lines[0]}"  =~  example     ]]
-  [[ "${lines[0]}"  =~  Type        ]]
-  [[ "${lines[0]}"  =~  not-valid   ]]
-}
-
-@test "'ls <selection> --documents' with no matches prints message." {
-  {
-    "${_NB}" init
-    cat <<HEREDOC | "${_NB}" add "example.md"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "sample.doc"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "example.doc"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" add "sample.md"
-line one
-line two
-line three
-line four
-HEREDOC
-  }
-
-  run "${_NB}" ls matchless-query --document
-
-  printf "\${status}:     '%s'\\n" "${status}"
-  printf "\${output}:     '%s'\\n" "${output}"
-  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
-
-  [[ "${status}"    -eq 1               ]]
-
-  [[ "${#lines[@]}" ==  1               ]]
-  [[ "${lines[0]}"  =~  Not\ found      ]]
-  [[ "${lines[0]}"  =~  matchless-query ]]
-  [[ "${lines[0]}"  =~  Type            ]]
-  [[ "${lines[0]}"  =~  document        ]]
-}
-
-@test "'<notebook>: <selection> --documents' with no matches prints message." {
-  {
-    "${_NB}" init
-    "${_NB}" notebooks add example
-    cat <<HEREDOC | "${_NB}" example:add "example.md"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" example:add "sample.doc"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" example:add "example.doc"
-line one
-line two
-line three
-line four
-HEREDOC
-    cat <<HEREDOC | "${_NB}" example:add "sample.md"
-line one
-line two
-line three
-line four
-HEREDOC
-  }
-
-  run "${_NB}" example: matchless-query --document
-
-  printf "\${status}:     '%s'\\n" "${status}"
-  printf "\${output}:     '%s'\\n" "${output}"
-  printf "\${#lines[@]}:  '%s'\\n" "${#lines[@]}"
-
-  [[ "${status}"    -eq 1                                                                 ]]
-  [[ "${#lines[@]}" ==  1                                                                 ]]
-  [[ "${lines[0]}"  =~  Not\ found:\ .*example:.*\ .*matchless-query.*\ Type:\ .*document ]]
 }

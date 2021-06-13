@@ -4,6 +4,56 @@ load test_helper
 
 # shortcut aliases ############################################################
 
+@test "'<notebook>:- <id>' deletes properly without errors." {
+  {
+    "${_NB}" init
+
+    "${_NB}" notebooks add "Example Notebook"
+
+    "${_NB}" add "Example Notebook:Example File.md"
+
+    _original_index="$(cat "${NB_DIR}/Example Notebook/.index")"
+
+    [[ -e "${NB_DIR}/Example Notebook/Example File.md"  ]]
+  }
+
+  run "${_NB}" Example\ Notebook:- 1 --force
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  # Returns status 0:
+
+  [[ "${status}" -eq 0                                  ]]
+
+  # Deletes file:
+
+  [[ ! -e "${NB_DIR}/Example Notebook/Example File.md"  ]]
+
+  # Creates git commit:
+
+  cd "${NB_DIR}/Example Notebook" || return 1
+  while [[ -n "$(git status --porcelain)" ]]
+  do
+    sleep 1
+  done
+  git log | grep -q '\[nb\] Delete'
+
+  # Deletes entry from index:
+
+  [[ -e "${NB_DIR}/Example Notebook/.index"             ]]
+  [[    "$(ls "${NB_DIR}/Example Notebook")"  == \
+          "$(cat "${NB_DIR}/Example Notebook/.index")"  ]]
+  [[    "${_original_index}"                  != \
+          "$(cat "${NB_DIR}/Example Notebook/.index")"  ]]
+
+  # Prints output:
+
+  [[ "${status}" -eq  0                                                     ]]
+  [[ "${output}" =~   Deleted:                                              ]]
+  [[ "${output}" =~   Example\ Notebook:1.*Example\ File.md.*\"mock_editor  ]]
+}
+
 @test "'- <id>' deletes properly without errors." {
   {
     "${_NB}" init
@@ -11,7 +61,7 @@ load test_helper
 
     _original_index="$(cat "${NB_DIR}/home/.index")"
 
-    [[ -e "${NB_DIR}/home/example.md"  ]]
+    [[ -e "${NB_DIR}/home/example.md"     ]]
   }
 
   run "${_NB}" - 1 --force
@@ -56,7 +106,7 @@ load test_helper
 
     _original_index="$(cat "${NB_DIR}/home/.index")"
 
-    [[ -e "${NB_DIR}/home/example.md"  ]]
+    [[ -e "${NB_DIR}/home/example.md"     ]]
   }
 
   run "${_NB}" d 1 --force
@@ -92,6 +142,66 @@ load test_helper
   [[ "${status}" -eq  0                             ]]
   [[ "${output}" =~   Deleted:                      ]]
   [[ "${output}" =~   1.*example.md.*\"mock_editor  ]]
+}
+
+# pins ########################################################################
+
+@test "'delete' removes .pindex entry." {
+  {
+    "${_NB}" init
+
+    "${_NB}" add "Example Folder/File One.md"    --title "Title One"
+    "${_NB}" add "Example Folder/File Two.md"    --title "Title Two"
+    "${_NB}" add "Example Folder/File Three.md"  --title "Title Three"
+    "${_NB}" add "Example Folder/File Four.md"   --title "Title Four"
+
+    "${_NB}" pin Example\ Folder/1
+    "${_NB}" pin Example\ Folder/4
+
+    diff                                        \
+      <(printf "File One.md\\nFile Four.md\\n") \
+      <(cat "${NB_DIR}/home/Example Folder/.pindex")
+
+    run "${_NB}" list Example\ Folder/ --with-pinned
+
+    printf "\${status}: '%s'\\n" "${status}"
+    printf "\${output}: '%s'\\n" "${output}"
+
+    [[ "${status}"    -eq 0                             ]]
+    [[ "${#lines[@]}" -eq 4                             ]]
+
+    [[ "${lines[0]}"  =~  \.*[.*Example\ Folder/1.*].*\ 📌\ Title\ One  ]]
+    [[ "${lines[1]}"  =~  \.*[.*Example\ Folder/4.*].*\ 📌\ Title\ Four ]]
+    [[ "${lines[2]}"  =~  \.*[.*Example\ Folder/3.*].*\ Title\ Three    ]]
+    [[ "${lines[3]}"  =~  \.*[.*Example\ Folder/2.*].*\ Title\ Two      ]]
+  }
+
+  run "${_NB}" delete Example\ Folder/4 --force
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}"    -eq 0                               ]]
+  [[ "${#lines[@]}" -eq 1                               ]]
+
+  diff                          \
+    <(printf "File One.md\\n")  \
+    <(cat "${NB_DIR}/home/Example Folder/.pindex")
+
+  [[ "${lines[0]}"  =~  \
+Deleted\:\ \ .*[.*Example\ Folder/4.*].*\ .*File\ Four.md.*\ \"Title\ Four\"   ]]
+
+  run "${_NB}" list Example\ Folder/ --with-pinned
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}"    -eq 0                               ]]
+  [[ "${#lines[@]}" -eq 3                               ]]
+
+  [[ "${lines[0]}"  =~  \.*[.*Example\ Folder/1.*].*\ 📌\ Title\ One    ]]
+  [[ "${lines[1]}"  =~  \.*[.*Example\ Folder/3.*].*\ Title\ Three      ]]
+  [[ "${lines[2]}"  =~  \.*[.*Example\ Folder/2.*].*\ Title\ Two        ]]
 }
 
 # multiple selectors ##########################################################
@@ -667,18 +777,38 @@ load test_helper
 
 # help ########################################################################
 
-@test "'help delete' exits with status 0." {
-  run "${_NB}" help delete
-
-  [[ "${status}" -eq 0 ]]
-}
-
-@test "'help delete' prints help information." {
+@test "'help delete' exits with status 0 and prints help information." {
   run "${_NB}" help delete
 
   printf "\${status}: '%s'\\n" "${status}"
   printf "\${output}: '%s'\\n" "${output}"
 
-  [[ "${lines[0]}" =~ Usage.*:    ]]
-  [[ "${lines[1]}" =~ nb\ delete  ]]
+  [[ "${status}"    -eq 0           ]]
+
+  [[ "${lines[0]}"  =~  Usage.*:    ]]
+  [[ "${lines[1]}"  =~  nb\ delete  ]]
+}
+
+@test "'help d' exits with status 0 and prints help information." {
+  run "${_NB}" help d
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}"    -eq 0           ]]
+
+  [[ "${lines[0]}"  =~  Usage.*:    ]]
+  [[ "${lines[1]}"  =~  nb\ delete  ]]
+}
+
+@test "'help -' exits with status 0 and prints help information." {
+  run "${_NB}" help -
+
+  printf "\${status}: '%s'\\n" "${status}"
+  printf "\${output}: '%s'\\n" "${output}"
+
+  [[ "${status}"    -eq 0           ]]
+
+  [[ "${lines[0]}"  =~  Usage.*:    ]]
+  [[ "${lines[1]}"  =~  nb\ delete  ]]
 }
