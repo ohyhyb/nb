@@ -4825,7 +4825,7 @@ _list() {
     if [[ "${NB_PINNED_PATTERN:-}"    ]]
     then
       _pinned_basenames=($(
-        GIT_PAGER='' git -C "${NB_DIR}"         \
+        GIT_PAGER='' git -C "${_list_path}"     \
           grep                                  \
           --color=never                         \
           --extended-regexp                     \
@@ -14660,7 +14660,7 @@ _search() {
 
           if [[ "${#_queries[@]}"   -le 1 ]]
           then
-            GIT_PAGER='' git -C "${NB_DIR}"             \
+            GIT_PAGER='' git -C "${_notebook_path}"     \
               grep                                      \
               --extended-regexp                         \
               --ignore-case                             \
@@ -14707,7 +14707,7 @@ _search() {
                     cat
                   fi | {
                     GIT_PAGER='' xargs "${_xargs[@]}" \
-                      git -C "${NB_DIR}"              \
+                      git -C "${_notebook_path}"      \
                       grep                            \
                       --extended-regexp               \
                       --files-with-matches            \
@@ -14745,7 +14745,7 @@ _search() {
                   done
 
                   GIT_PAGER='' xargs "${_xargs[@]}"           \
-                    git -C "${NB_DIR}"                        \
+                    git -C "${_notebook_path}"                \
                     grep                                      \
                     --extended-regexp                         \
                     --ignore-case                             \
@@ -14756,7 +14756,7 @@ _search() {
                     || return 0  # Don't fail out within a single scope.
                 else
                   GIT_PAGER='' xargs "${_xargs[@]}"           \
-                    git -C "${NB_DIR}"                        \
+                    git -C "${_notebook_path}"                \
                     grep                                      \
                     --extended-regexp                         \
                     --ignore-case                             \
